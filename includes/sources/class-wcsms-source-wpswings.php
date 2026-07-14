@@ -205,6 +205,7 @@ class WCSMS_Source_WPSwings extends WCSMS_Source_Adapter {
 				)
 			),
 			'parent_order_id'         => $parent_order ? $parent_order_id : 0,
+			'renewal_order_ids'       => $this->renewal_order_ids( $id ),
 			'order_notes'             => array(
 				sprintf(
 					/* translators: %d: source subscription id. */
@@ -343,6 +344,27 @@ class WCSMS_Source_WPSwings extends WCSMS_Source_Adapter {
 		}
 
 		return gmdate( 'Y-m-d H:i:s', (int) $meta[ $key ] );
+	}
+
+	/**
+	 * Renewal orders are plain shop orders stamped with wps_sfw_subscription
+	 * pointing back at the source subscription.
+	 *
+	 * @param int $id Source subscription id.
+	 * @return int[]
+	 */
+	private function renewal_order_ids( $id ) {
+		global $wpdb;
+
+		if ( 'hpos' === $this->store() ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT o.id FROM {$wpdb->prefix}wc_orders o INNER JOIN {$wpdb->prefix}wc_orders_meta m ON m.order_id = o.id AND m.meta_key = 'wps_sfw_subscription' AND m.meta_value = %s WHERE o.type = 'shop_order' ORDER BY o.id ASC", (string) $id ) );
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT p.ID FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = 'wps_sfw_subscription' AND m.meta_value = %s WHERE p.post_type = 'shop_order' ORDER BY p.ID ASC", (string) $id ) );
+		}
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

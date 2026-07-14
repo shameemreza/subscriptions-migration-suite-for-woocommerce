@@ -93,6 +93,17 @@ class WCSMS_Rollback {
 				as_unschedule_all_actions( $hook, $args, WCSMS_Cutover::AS_GROUP );
 			}
 
+			// Unlink renewal history first: the orders are real customer
+			// orders that stay, but their relation to a subscription that
+			// is about to disappear must not.
+			$store = WCS_Related_Order_Store::instance();
+			foreach ( $store->get_related_order_ids( $subscription, 'renewal' ) as $renewal_order_id ) {
+				$renewal_order = wc_get_order( $renewal_order_id );
+				if ( $renewal_order instanceof WC_Order ) {
+					$store->delete_relation( $renewal_order, $subscription, 'renewal' );
+				}
+			}
+
 			$subscription->delete( true );
 			$report['deleted']++;
 		}

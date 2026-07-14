@@ -200,6 +200,7 @@ class WCSMS_Source_YITH extends WCSMS_Source_Adapter {
 				)
 			),
 			'parent_order_id'         => $this->parent_order( $get ),
+			'renewal_order_ids'       => $this->renewal_order_ids( $get ),
 			'order_notes'             => array(
 				sprintf(
 					/* translators: 1: source subscription id, 2: source status. */
@@ -350,6 +351,33 @@ class WCSMS_Source_YITH extends WCSMS_Source_Adapter {
 		}
 
 		return 0;
+	}
+
+	/**
+	 * Renewal orders from the order_ids array the source keeps on the
+	 * subscription, excluding the parent order.
+	 *
+	 * @param callable $get Dual-key meta reader.
+	 * @return int[]
+	 */
+	private function renewal_order_ids( $get ) {
+		$order_ids = maybe_unserialize( $get( 'order_ids' ) );
+
+		if ( ! is_array( $order_ids ) ) {
+			return array();
+		}
+
+		$parent = (int) $get( 'order_id' );
+		$ids    = array();
+
+		foreach ( $order_ids as $order_id ) {
+			$order_id = (int) $order_id;
+			if ( $order_id > 0 && $order_id !== $parent ) {
+				$ids[] = $order_id;
+			}
+		}
+
+		return $ids;
 	}
 
 	/**

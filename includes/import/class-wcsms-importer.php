@@ -376,6 +376,8 @@ class WCSMS_Importer {
 			$subscription->add_order_note( $note );
 		}
 
+		$this->link_renewal_orders( $subscription, $record, $result );
+
 		$subscription->save();
 
 		if ( ! empty( $options['hold'] ) ) {
@@ -383,6 +385,50 @@ class WCSMS_Importer {
 		}
 
 		return $subscription;
+	}
+
+	/**
+	 * Link existing orders as renewal history, so reports and the
+	 * customer's related orders survive the migration.
+	 *
+	 * @param WC_Subscription $subscription Subscription being built.
+	 * @param array           $record       Normalized record.
+	 * @param array           $result       Row result, warnings appended by reference.
+	 */
+	private function link_renewal_orders( $subscription, $record, &$result ) {
+		if ( empty( $record['renewal_order_ids'] ) ) {
+			return;
+		}
+
+		$store  = WCS_Related_Order_Store::instance();
+		$linked = 0;
+
+		foreach ( $record['renewal_order_ids'] as $order_id ) {
+			if ( $order_id === $record['parent_order_id'] ) {
+				continue;
+			}
+
+			$order = wc_get_order( $order_id );
+
+			if ( ! $order || ! $order instanceof WC_Order ) {
+				/* translators: %d: order id from the record. */
+				$result['warnings'][] = sprintf( __( 'Renewal order #%d was not found and could not be linked.', 'subscriptions-migration-suite-for-woocommerce' ), $order_id );
+				continue;
+			}
+
+			$store->add_relation( $order, $subscription, 'renewal' );
+			$linked++;
+		}
+
+		if ( $linked > 0 ) {
+			$subscription->add_order_note(
+				sprintf(
+					/* translators: %d: number of renewal orders linked. */
+					_n( 'Linked %d renewal order from the source subscription history.', 'Linked %d renewal orders from the source subscription history.', $linked, 'subscriptions-migration-suite-for-woocommerce' ),
+					$linked
+				)
+			);
+		}
 	}
 
 	/**

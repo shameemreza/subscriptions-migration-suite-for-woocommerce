@@ -189,6 +189,7 @@ class WCSMS_Source_Flexible_Subscriptions extends WCSMS_Source_Adapter {
 			'items'                   => $this->read_items( $id ),
 			'totals'                  => $row['totals'],
 			'parent_order_id'         => $parent_order_id,
+			'renewal_order_ids'       => $this->renewal_order_ids( $id ),
 			'order_notes'             => array(
 				sprintf(
 					/* translators: %d: source subscription id. */
@@ -414,6 +415,27 @@ class WCSMS_Source_Flexible_Subscriptions extends WCSMS_Source_Adapter {
 		}
 
 		return $items;
+	}
+
+	/**
+	 * Renewal orders already carry the WCS-convention _subscription_renewal
+	 * meta pointing at the source subscription id, in both storage modes.
+	 *
+	 * @param int $id Source subscription id.
+	 * @return int[]
+	 */
+	private function renewal_order_ids( $id ) {
+		global $wpdb;
+
+		if ( 'hpos' === $this->store() ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT o.id FROM {$wpdb->prefix}wc_orders o INNER JOIN {$wpdb->prefix}wc_orders_meta m ON m.order_id = o.id AND m.meta_key = '_subscription_renewal' AND m.meta_value = %s WHERE o.type = 'shop_order' ORDER BY o.id ASC", (string) $id ) );
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+			$ids = $wpdb->get_col( $wpdb->prepare( "SELECT p.ID FROM {$wpdb->posts} p INNER JOIN {$wpdb->postmeta} m ON m.post_id = p.ID AND m.meta_key = '_subscription_renewal' AND m.meta_value = %s WHERE p.post_type = 'shop_order' ORDER BY p.ID ASC", (string) $id ) );
+		}
+
+		return array_map( 'intval', (array) $ids );
 	}
 
 	/**

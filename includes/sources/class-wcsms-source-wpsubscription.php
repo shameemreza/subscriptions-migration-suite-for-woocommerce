@@ -183,6 +183,7 @@ class WCSMS_Source_WPSubscription extends WCSMS_Source_Adapter {
 			'items'                   => $this->items( $id, $price ),
 			'totals'                  => $price > 0 ? array( 'total' => $price ) : array(),
 			'parent_order_id'         => $parent_order ? $parent_order_id : 0,
+			'renewal_order_ids'       => $this->renewal_order_ids( $id, $parent_order_id ),
 			'order_notes'             => array(
 				sprintf(
 					/* translators: 1: source subscription id, 2: source status. */
@@ -275,6 +276,39 @@ class WCSMS_Source_WPSubscription extends WCSMS_Source_Adapter {
 		}
 
 		return gmdate( 'Y-m-d H:i:s', (int) $value );
+	}
+
+	/**
+	 * Renewal orders from the relation table (renew and early-renew rows),
+	 * when the installer created it.
+	 *
+	 * @param int $id        Source subscription id.
+	 * @param int $parent_id Parent order id, excluded from the list.
+	 * @return int[]
+	 */
+	private function renewal_order_ids( $id, $parent_id ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . 'subscrpt_order_relation';
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema lookup.
+		if ( ! $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
+			return array();
+		}
+
+		// Table name is built from the prefix and a literal, never user input.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only migration source scan; identifier is static.
+		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT order_id FROM `{$table}` WHERE subscription_id = %d AND type IN ( 'renew', 'early-renew' ) ORDER BY id ASC", $id ) );
+
+		$renewals = array();
+		foreach ( (array) $ids as $order_id ) {
+			$order_id = (int) $order_id;
+			if ( $order_id > 0 && $order_id !== $parent_id ) {
+				$renewals[] = $order_id;
+			}
+		}
+
+		return $renewals;
 	}
 
 	/**

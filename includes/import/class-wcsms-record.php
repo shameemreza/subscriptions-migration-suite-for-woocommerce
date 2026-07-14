@@ -27,6 +27,10 @@
  * - customer_note    (string).
  * - order_notes      (array of strings) Private notes added after creation.
  * - parent_order_id  (int) Existing order to attach as parent.
+ * - renewal_order_ids (int[]) Existing orders on THIS site to link as
+ *                    renewal history. Same-site migrations only: ids from
+ *                    another site mean nothing here, so exports do not
+ *                    carry them.
  *
  * @package WCSMS
  */
@@ -92,8 +96,18 @@ class WCSMS_Record {
 			'customer_note'           => isset( $raw['customer_note'] ) ? sanitize_textarea_field( $raw['customer_note'] ) : '',
 			'order_notes'             => array(),
 			'parent_order_id'         => isset( $raw['parent_order_id'] ) ? absint( $raw['parent_order_id'] ) : 0,
+			'renewal_order_ids'       => array(),
 			'tax_lines'               => self::normalize_tax_lines( $raw ),
 		);
+
+		if ( isset( $raw['renewal_order_ids'] ) && is_array( $raw['renewal_order_ids'] ) ) {
+			foreach ( $raw['renewal_order_ids'] as $renewal_id ) {
+				if ( is_numeric( $renewal_id ) && (int) $renewal_id > 0 ) {
+					$record['renewal_order_ids'][] = (int) $renewal_id;
+				}
+			}
+			$record['renewal_order_ids'] = array_values( array_unique( $record['renewal_order_ids'] ) );
+		}
 
 		if ( '' === $record['source'] || '' === $record['source_id'] ) {
 			$errors->add( 'missing_source', __( 'source and source_id are required for idempotent imports.', 'subscriptions-migration-suite-for-woocommerce' ) );

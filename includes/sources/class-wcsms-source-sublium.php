@@ -218,6 +218,7 @@ class WCSMS_Source_Sublium extends WCSMS_Source_Adapter {
 			'items'                   => $items,
 			'totals'                  => $this->totals( $row ),
 			'parent_order_id'         => $parent_order ? $parent_order_id : 0,
+			'renewal_order_ids'       => $this->renewal_order_ids( $meta, $parent_order_id ),
 			'order_notes'             => array(
 				sprintf(
 					/* translators: 1: source subscription id, 2: numeric source status. */
@@ -420,6 +421,35 @@ class WCSMS_Source_Sublium extends WCSMS_Source_Adapter {
 		}
 
 		return $address;
+	}
+
+	/**
+	 * Renewal orders from the renewal_orders JSON array in the meta table.
+	 *
+	 * @param array $meta      Subscription meta.
+	 * @param int   $parent_id Parent order id, excluded from the list.
+	 * @return int[]
+	 */
+	private function renewal_order_ids( $meta, $parent_id ) {
+		if ( empty( $meta['renewal_orders'] ) ) {
+			return array();
+		}
+
+		$decoded = json_decode( (string) $meta['renewal_orders'], true );
+
+		if ( ! is_array( $decoded ) ) {
+			return array();
+		}
+
+		$renewals = array();
+		foreach ( $decoded as $order_id ) {
+			$order_id = (int) $order_id;
+			if ( $order_id > 0 && $order_id !== $parent_id ) {
+				$renewals[] = $order_id;
+			}
+		}
+
+		return $renewals;
 	}
 
 	/**
