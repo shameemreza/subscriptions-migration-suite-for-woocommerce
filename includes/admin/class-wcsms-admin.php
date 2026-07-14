@@ -16,7 +16,8 @@ class WCSMS_Admin {
 	const SCAN_ACTION   = 'wcsms_run_scan';
 	const UPLOAD_ACTION = 'wcsms_upload_import';
 	const RESUME_ACTION = 'wcsms_resume_run';
-	const EXPORT_ACTION = 'wcsms_export_download';
+	const EXPORT_ACTION  = 'wcsms_export_download';
+	const MIGRATE_ACTION = 'wcsms_start_migration';
 
 	/**
 	 * Tabs shown on the page.
@@ -33,6 +34,7 @@ class WCSMS_Admin {
 		add_action( 'admin_post_' . self::UPLOAD_ACTION, array( __CLASS__, 'handle_upload' ) );
 		add_action( 'admin_post_' . self::RESUME_ACTION, array( __CLASS__, 'handle_resume' ) );
 		add_action( 'admin_post_' . self::EXPORT_ACTION, array( __CLASS__, 'handle_export' ) );
+		add_action( 'admin_post_' . self::MIGRATE_ACTION, array( __CLASS__, 'handle_migrate' ) );
 		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
 	}
@@ -181,6 +183,42 @@ class WCSMS_Admin {
 		}
 
 		self::redirect_with_notice( 'runs', 'success', __( 'Run re-queued from its last checkpoint.', 'subscriptions-migration-suite-for-woocommerce' ) );
+	}
+
+	/**
+	 * Queue a background migration for a detected source.
+	 */
+	public static function handle_migrate() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to migrate subscriptions.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		check_admin_referer( self::MIGRATE_ACTION );
+
+		$source_id = isset( $_POST['wcsms_source'] ) ? sanitize_key( wp_unslash( $_POST['wcsms_source'] ) ) : '';
+		$dry_run   = empty( $_POST['wcsms_live'] );
+
+		if ( ! $dry_run && ! WCSMS_Plugin::is_wcs_active() ) {
+			self::redirect_with_notice( 'scan', 'error', __( 'WooCommerce Subscriptions must be active for a live migration.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		$run = WCSMS_Batch_Runner::start_source( $source_id, $dry_run );
+
+		if ( is_wp_error( $run ) ) {
+			self::redirect_with_notice( 'scan', 'error', $run->get_error_message() );
+		}
+
+		self::redirect_with_notice(
+			'runs',
+			'success',
+			sprintf(
+				/* translators: %d: number of subscriptions found in the source. */
+				$dry_run
+					? __( 'Dry run queued for %d subscriptions. Nothing will be written; review the results below, then run it live.', 'subscriptions-migration-suite-for-woocommerce' )
+					: __( 'Migration queued for %d subscriptions. Batches process in the background; refresh to follow progress.', 'subscriptions-migration-suite-for-woocommerce' ),
+				$run['total']
+			)
+		);
 	}
 
 	/**

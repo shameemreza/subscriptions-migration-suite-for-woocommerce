@@ -47,6 +47,7 @@ defined( 'ABSPATH' ) || exit;
 						<?php esc_html_e( 'Payment continuity', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 						<?php echo wc_help_tip( __( 'Whether automatic renewals survive migration. Carries over: renews without customer action. Conditional: renews if the same gateway stays active. Re-authorization needed: customer must add a payment method. Blocked: billing is hosted at the gateway and must be resolved there first. Manual renewal: no automatic payments in the source either.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
 					</th>
+					<th></th>
 				</tr>
 			</thead>
 			<tbody>
@@ -81,6 +82,23 @@ defined( 'ABSPATH' ) || exit;
 							}
 							echo esc_html( implode( ', ', $parts ) );
 							?>
+						</td>
+						<td>
+							<?php if ( null !== WCSMS_Sources::get( $source['id'] ) ) : ?>
+								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
+									<?php wp_nonce_field( WCSMS_Admin::MIGRATE_ACTION ); ?>
+									<input type="hidden" name="action" value="<?php echo esc_attr( WCSMS_Admin::MIGRATE_ACTION ); ?>" />
+									<input type="hidden" name="wcsms_source" value="<?php echo esc_attr( $source['id'] ); ?>" />
+									<label style="display: block; margin-bottom: 4px;">
+										<input type="checkbox" name="wcsms_live" value="1" />
+										<?php esc_html_e( 'Live', 'subscriptions-migration-suite-for-woocommerce' ); ?>
+										<?php echo wc_help_tip( __( 'Leave unchecked to queue a dry run first: records are validated and resolved, nothing is written.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+									</label>
+									<button type="submit" class="button button-primary"><?php esc_html_e( 'Queue migration', 'subscriptions-migration-suite-for-woocommerce' ); ?></button>
+								</form>
+							<?php else : ?>
+								<em><?php esc_html_e( 'Adapter not available yet', 'subscriptions-migration-suite-for-woocommerce' ); ?></em>
+							<?php endif; ?>
 						</td>
 					</tr>
 				<?php endforeach; ?>
