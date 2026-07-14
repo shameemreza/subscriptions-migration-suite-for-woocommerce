@@ -9,9 +9,11 @@
 
 defined( 'ABSPATH' ) || exit;
 
+// Keep in step with WCSMS_Admin::TABS: this array drives the nav links.
 $wcsms_tabs = array(
 	'scan'   => __( 'Scan', 'subscriptions-migration-suite-for-woocommerce' ),
 	'import' => __( 'Import', 'subscriptions-migration-suite-for-woocommerce' ),
+	'export' => __( 'Export', 'subscriptions-migration-suite-for-woocommerce' ),
 	'runs'   => __( 'Runs', 'subscriptions-migration-suite-for-woocommerce' ),
 );
 ?>
