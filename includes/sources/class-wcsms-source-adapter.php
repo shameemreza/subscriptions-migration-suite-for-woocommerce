@@ -91,6 +91,7 @@ class WCSMS_Sources {
 			'wpswings'               => 'WCSMS_Source_WPSwings',
 			'yith'                   => 'WCSMS_Source_YITH',
 			'wpsubscription'         => 'WCSMS_Source_WPSubscription',
+			'sublium'                => 'WCSMS_Source_Sublium',
 		);
 	}
 

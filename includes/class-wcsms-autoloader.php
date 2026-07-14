@@ -38,6 +38,7 @@ class WCSMS_Autoloader {
 		'WCSMS_Source_WPSwings'    => 'sources/class-wcsms-source-wpswings.php',
 		'WCSMS_Source_YITH'        => 'sources/class-wcsms-source-yith.php',
 		'WCSMS_Source_WPSubscription' => 'sources/class-wcsms-source-wpsubscription.php',
+		'WCSMS_Source_Sublium'     => 'sources/class-wcsms-source-sublium.php',
 		'WCSMS_Batch_Runner'       => 'import/class-wcsms-batch-runner.php',
 		'WCSMS_Product_Converter'  => 'import/class-wcsms-product-converter.php',
 		'WCSMS_Cutover'            => 'import/class-wcsms-cutover.php',
