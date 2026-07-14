@@ -95,7 +95,172 @@ class WCSMS_Scanner {
 			'store'         => $counts['store'],
 			'total'         => $counts['total'],
 			'statuses'      => $counts['statuses'],
+			'continuity'    => WCSMS_Continuity::summarize( $source_id, $this->gateway_rows( $source_id, $definition, $counts['store'] ) ),
 		);
+	}
+
+	/**
+	 * Fetch gateway breakdown rows for continuity classification.
+	 *
+	 * Each row carries: gateway, flag (source-specific manual or auto-renew
+	 * marker), mode (Sublium gateway_mode), and total.
+	 *
+	 * @param string $source_id  Source identifier.
+	 * @param array  $definition Source definition.
+	 * @param string $store      Store the counts came from (hpos, posts, table).
+	 * @return array<int, array>
+	 */
+	private function gateway_rows( $source_id, $definition, $store ) {
+		switch ( $source_id ) {
+			case 'wpswings':
+				return $this->gateway_rows_order_type( $definition['object_type'], $store, 'wps_wsp_payment_type' );
+			case 'flexible_subscriptions':
+				return $this->gateway_rows_order_type( $definition['object_type'], $store, '_requires_manual_renewal' );
+			case 'yith':
+				return $this->gateway_rows_yith();
+			case 'wpsubscription':
+				return $this->gateway_rows_wpsubscription();
+			case 'sublium':
+				return $this->gateway_rows_sublium( $definition );
+		}
+
+		return array();
+	}
+
+	/**
+	 * Gateway rows for order-type sources, from whichever store holds the data.
+	 *
+	 * @param string $type     Order type.
+	 * @param string $store    hpos or posts.
+	 * @param string $flag_key Meta key holding the manual/auto-renew marker.
+	 * @return array<int, array>
+	 */
+	private function gateway_rows_order_type( $type, $store, $flag_key ) {
+		global $wpdb;
+
+		if ( 'hpos' === $store ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only scan of a foreign schema; see file docblock.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT COALESCE(o.payment_method, '') AS gateway, COALESCE(f.meta_value, '') AS flag, COUNT(*) AS total
+					 FROM {$wpdb->prefix}wc_orders o
+					 LEFT JOIN {$wpdb->prefix}wc_orders_meta f ON f.order_id = o.id AND f.meta_key = %s
+					 WHERE o.type = %s
+					 GROUP BY o.payment_method, f.meta_value",
+					$flag_key,
+					$type
+				),
+				ARRAY_A
+			);
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only scan of a foreign schema; see file docblock.
+			$rows = $wpdb->get_results(
+				$wpdb->prepare(
+					"SELECT COALESCE(gw.meta_value, '') AS gateway, COALESCE(f.meta_value, '') AS flag, COUNT(*) AS total
+					 FROM {$wpdb->posts} p
+					 LEFT JOIN {$wpdb->postmeta} gw ON gw.post_id = p.ID AND gw.meta_key = '_payment_method'
+					 LEFT JOIN {$wpdb->postmeta} f ON f.post_id = p.ID AND f.meta_key = %s
+					 WHERE p.post_type = %s AND p.post_status <> 'trash'
+					 GROUP BY gw.meta_value, f.meta_value",
+					$flag_key,
+					$type
+				),
+				ARRAY_A
+			);
+		}
+
+		return (array) $rows;
+	}
+
+	/**
+	 * Gateway rows for YITH, which stores the gateway under either
+	 * payment_method or _payment_method.
+	 *
+	 * @return array<int, array>
+	 */
+	private function gateway_rows_yith() {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only scan of a foreign schema; see file docblock.
+		$rows = $wpdb->get_results(
+			"SELECT COALESCE(gw1.meta_value, gw2.meta_value, '') AS gateway, '' AS flag, COUNT(*) AS total
+			 FROM {$wpdb->posts} p
+			 LEFT JOIN {$wpdb->postmeta} gw1 ON gw1.post_id = p.ID AND gw1.meta_key = 'payment_method'
+			 LEFT JOIN {$wpdb->postmeta} gw2 ON gw2.post_id = p.ID AND gw2.meta_key = '_payment_method'
+			 WHERE p.post_type = 'ywsbs_subscription' AND p.post_status <> 'trash'
+			 GROUP BY COALESCE(gw1.meta_value, gw2.meta_value)",
+			ARRAY_A
+		);
+
+		return (array) $rows;
+	}
+
+	/**
+	 * Gateway rows for WPSubscription. The gateway lives on the parent WC
+	 * order, reached through the _subscrpt_order_id meta; the auto-renew
+	 * marker lives on the subscription itself.
+	 *
+	 * @return array<int, array>
+	 */
+	private function gateway_rows_wpsubscription() {
+		global $wpdb;
+
+		$orders_table = $wpdb->prefix . 'wc_orders';
+
+		if ( $this->table_exists( $orders_table ) ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only scan of a foreign schema; see file docblock.
+			$rows = $wpdb->get_results(
+				"SELECT COALESCE(o.payment_method, '') AS gateway, COALESCE(ar.meta_value, '') AS flag, COUNT(*) AS total
+				 FROM {$wpdb->posts} p
+				 LEFT JOIN {$wpdb->postmeta} rel ON rel.post_id = p.ID AND rel.meta_key = '_subscrpt_order_id'
+				 LEFT JOIN {$wpdb->prefix}wc_orders o ON o.id = rel.meta_value
+				 LEFT JOIN {$wpdb->postmeta} ar ON ar.post_id = p.ID AND ar.meta_key = '_subscrpt_auto_renew'
+				 WHERE p.post_type = 'subscrpt_order' AND p.post_status <> 'trash'
+				 GROUP BY o.payment_method, ar.meta_value",
+				ARRAY_A
+			);
+		} else {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only scan of a foreign schema; see file docblock.
+			$rows = $wpdb->get_results(
+				"SELECT COALESCE(gw.meta_value, '') AS gateway, COALESCE(ar.meta_value, '') AS flag, COUNT(*) AS total
+				 FROM {$wpdb->posts} p
+				 LEFT JOIN {$wpdb->postmeta} rel ON rel.post_id = p.ID AND rel.meta_key = '_subscrpt_order_id'
+				 LEFT JOIN {$wpdb->postmeta} gw ON gw.post_id = rel.meta_value AND gw.meta_key = '_payment_method'
+				 LEFT JOIN {$wpdb->postmeta} ar ON ar.post_id = p.ID AND ar.meta_key = '_subscrpt_auto_renew'
+				 WHERE p.post_type = 'subscrpt_order' AND p.post_status <> 'trash'
+				 GROUP BY gw.meta_value, ar.meta_value",
+				ARRAY_A
+			);
+		}
+
+		return (array) $rows;
+	}
+
+	/**
+	 * Gateway rows for Sublium, including the store-managed vs offsite mode.
+	 *
+	 * @param array $definition Source definition.
+	 * @return array<int, array>
+	 */
+	private function gateway_rows_sublium( $definition ) {
+		global $wpdb;
+
+		$table = $wpdb->prefix . $definition['table'];
+
+		if ( ! $this->table_exists( $table ) ) {
+			return array();
+		}
+
+		// Table name comes from the static definitions, never from user input.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only scan of a foreign schema; identifiers are static.
+		$rows = $wpdb->get_results(
+			"SELECT COALESCE(gateway, '') AS gateway, '' AS flag, COALESCE(gateway_mode, 1) AS mode, COUNT(*) AS total
+			 FROM `{$table}`
+			 GROUP BY gateway, gateway_mode",
+			ARRAY_A
+		);
+
+		return (array) $rows;
 	}
 
 	/**

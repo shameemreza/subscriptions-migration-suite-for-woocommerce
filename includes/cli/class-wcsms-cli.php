@@ -63,16 +63,22 @@ class WCSMS_CLI {
 				$statuses[] = $status . ':' . $count;
 			}
 
+			$continuity = array();
+			foreach ( $source['continuity'] as $bucket => $count ) {
+				$continuity[] = $bucket . ':' . $count;
+			}
+
 			$rows[] = array(
 				'source'        => $source['label'],
 				'plugin_active' => $source['plugin_active'] ? 'yes' : 'no',
 				'store'         => $source['store'],
 				'total'         => $source['total'],
 				'statuses'      => implode( ' ', $statuses ),
+				'continuity'    => implode( ' ', $continuity ),
 			);
 		}
 
 		$format = isset( $assoc_args['format'] ) ? $assoc_args['format'] : 'table';
-		WP_CLI\Utils\format_items( $format, $rows, array( 'source', 'plugin_active', 'store', 'total', 'statuses' ) );
+		WP_CLI\Utils\format_items( $format, $rows, array( 'source', 'plugin_active', 'store', 'total', 'statuses', 'continuity' ) );
 	}
 }

@@ -52,6 +52,10 @@ defined( 'ABSPATH' ) || exit;
 						</th>
 						<th><?php esc_html_e( 'Subscriptions', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
 						<th><?php esc_html_e( 'By status', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
+						<th>
+							<?php esc_html_e( 'Payment continuity', 'subscriptions-migration-suite-for-woocommerce' ); ?>
+							<?php echo wc_help_tip( __( 'Whether automatic renewals survive migration. Carries over: renews without customer action. Conditional: renews if the same gateway stays active. Re-authorization needed: customer must add a payment method. Blocked: billing is hosted at the gateway and must be resolved there first. Manual renewal: no automatic payments in the source either.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+						</th>
 					</tr>
 				</thead>
 				<tbody>
@@ -72,6 +76,17 @@ defined( 'ABSPATH' ) || exit;
 								$parts = array();
 								foreach ( $source['statuses'] as $status => $count ) {
 									$parts[] = sprintf( '%s: %s', $status, number_format_i18n( $count ) );
+								}
+								echo esc_html( implode( ', ', $parts ) );
+								?>
+							</td>
+							<td>
+								<?php
+								$labels = WCSMS_Continuity::labels();
+								$parts  = array();
+								foreach ( $source['continuity'] as $bucket => $count ) {
+									$label   = isset( $labels[ $bucket ] ) ? $labels[ $bucket ] : $bucket;
+									$parts[] = sprintf( '%s: %s', $label, number_format_i18n( $count ) );
 								}
 								echo esc_html( implode( ', ', $parts ) );
 								?>

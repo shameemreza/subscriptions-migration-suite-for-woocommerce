@@ -26,6 +26,7 @@ class WCSMS_Autoloader {
 		'WCSMS_Admin'              => 'admin/class-wcsms-admin.php',
 		'WCSMS_Settings'           => 'admin/class-wcsms-settings.php',
 		'WCSMS_Scanner'            => 'scan/class-wcsms-scanner.php',
+		'WCSMS_Continuity'         => 'scan/class-wcsms-continuity.php',
 		'WCSMS_Source_Definitions' => 'scan/class-wcsms-source-definitions.php',
 		'WCSMS_CLI'                => 'cli/class-wcsms-cli.php',
 	);
