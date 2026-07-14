@@ -346,6 +346,86 @@ class WCSMS_Source_WPSwings extends WCSMS_Source_Adapter {
 	}
 
 	/**
+	 * Product conversion maps. WP Swings marks products with the
+	 * _wps_sfw_product flag and stores billing terms in wps_sfw_* meta,
+	 * already using the WCS period vocabulary.
+	 *
+	 * @return array<int, array>
+	 */
+	public function product_maps() {
+		global $wpdb;
+
+		$maps = array();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+		$product_ids = $wpdb->get_col(
+			"SELECT pm.post_id
+			 FROM {$wpdb->postmeta} pm
+			 INNER JOIN {$wpdb->posts} p ON p.ID = pm.post_id AND p.post_type = 'product' AND p.post_status <> 'trash'
+			 WHERE pm.meta_key = '_wps_sfw_product' AND pm.meta_value = 'yes'
+			 ORDER BY pm.post_id ASC"
+		);
+
+		foreach ( $product_ids as $product_id ) {
+			$product_id = (int) $product_id;
+
+			if ( 'yes' === get_post_meta( $product_id, 'wps_sfw_variable_product', true ) ) {
+				$maps[] = array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => __( 'Variable subscription products need per-variation conversion, which is not supported yet.', 'subscriptions-migration-suite-for-woocommerce' ),
+				);
+				continue;
+			}
+
+			$period   = (string) get_post_meta( $product_id, 'wps_sfw_subscription_interval', true );
+			$interval = max( 1, (int) get_post_meta( $product_id, 'wps_sfw_subscription_number', true ) );
+
+			if ( ! in_array( $period, array( 'day', 'week', 'month', 'year' ), true ) ) {
+				$maps[] = array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => sprintf(
+						/* translators: %s: period value from the source product. */
+						__( 'Unrecognized subscription period "%s" on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
+						$period
+					),
+				);
+				continue;
+			}
+
+			$meta = array(
+				'_subscription_period'          => $period,
+				'_subscription_period_interval' => $interval,
+				'_subscription_sign_up_fee'     => (string) get_post_meta( $product_id, 'wps_sfw_subscription_initial_signup_price', true ),
+			);
+
+			// WCS length counts billing periods, so the source expiry maps
+			// only when its unit matches the billing period.
+			$expiry_number   = (int) get_post_meta( $product_id, 'wps_sfw_subscription_expiry_number', true );
+			$expiry_interval = (string) get_post_meta( $product_id, 'wps_sfw_subscription_expiry_interval', true );
+			if ( $expiry_number > 0 && $expiry_interval === $period ) {
+				$meta['_subscription_length'] = $expiry_number;
+			}
+
+			$trial_number = (int) get_post_meta( $product_id, 'wps_sfw_subscription_free_trial_number', true );
+			if ( $trial_number > 0 ) {
+				$trial_interval                     = (string) get_post_meta( $product_id, 'wps_sfw_subscription_free_trial_interval', true );
+				$meta['_subscription_trial_length'] = $trial_number;
+				$meta['_subscription_trial_period'] = in_array( $trial_interval, array( 'day', 'week', 'month', 'year' ), true ) ? $trial_interval : $period;
+			}
+
+			$maps[] = array(
+				'product_id' => $product_id,
+				'meta'       => array_filter( $meta, 'strlen' ),
+				'error'      => null,
+			);
+		}
+
+		return $maps;
+	}
+
+	/**
 	 * The store holding the source data.
 	 *
 	 * @return string hpos or posts.

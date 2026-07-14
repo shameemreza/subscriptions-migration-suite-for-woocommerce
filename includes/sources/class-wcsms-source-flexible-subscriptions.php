@@ -417,6 +417,90 @@ class WCSMS_Source_Flexible_Subscriptions extends WCSMS_Source_Adapter {
 	}
 
 	/**
+	 * Product conversion maps. Flexible Subscriptions products are the WCS
+	 * schema with an _fsb_ prefix; the period is a single letter (M) and
+	 * the recurring price lives in the native _price.
+	 *
+	 * @return array<int, array>
+	 */
+	public function product_maps() {
+		global $wpdb;
+
+		$maps = array();
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+		$rows = $wpdb->get_results(
+			"SELECT tr.object_id, t.slug
+			 FROM {$wpdb->term_relationships} tr
+			 INNER JOIN {$wpdb->term_taxonomy} tt ON tt.term_taxonomy_id = tr.term_taxonomy_id AND tt.taxonomy = 'product_type'
+			 INNER JOIN {$wpdb->terms} t ON t.term_id = tt.term_id
+			 WHERE t.slug IN ( 'fsb-subscription', 'fsb-variable-subscription' )
+			 ORDER BY tr.object_id ASC",
+			ARRAY_A
+		);
+
+		$letter_periods = array(
+			'D' => 'day',
+			'W' => 'week',
+			'M' => 'month',
+			'Y' => 'year',
+		);
+
+		foreach ( $rows as $row ) {
+			$product_id = (int) $row['object_id'];
+
+			if ( 'fsb-variable-subscription' === $row['slug'] ) {
+				$maps[] = array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => __( 'Variable subscription products need per-variation conversion, which is not supported yet.', 'subscriptions-migration-suite-for-woocommerce' ),
+				);
+				continue;
+			}
+
+			$period_letter = strtoupper( (string) get_post_meta( $product_id, '_fsb_subscription_period', true ) );
+			$period        = isset( $letter_periods[ $period_letter ] ) ? $letter_periods[ $period_letter ] : '';
+
+			if ( '' === $period ) {
+				$maps[] = array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => sprintf(
+						/* translators: %s: period value from the source product. */
+						__( 'Unrecognized subscription period "%s" on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
+						$period_letter
+					),
+				);
+				continue;
+			}
+
+			$meta = array(
+				'_subscription_period'          => $period,
+				'_subscription_period_interval' => max( 1, (int) get_post_meta( $product_id, '_fsb_subscription_interval', true ) ),
+				'_subscription_length'          => (int) get_post_meta( $product_id, '_fsb_subscription_length', true ),
+				'_subscription_sign_up_fee'     => (string) get_post_meta( $product_id, '_fsb_subscription_sign_up_fee', true ),
+				'_subscription_one_time_shipping' => 'yes' === get_post_meta( $product_id, '_fsb_subscription_one_time_shipping', true ) ? 'yes' : 'no',
+				'_subscription_limit'           => (string) get_post_meta( $product_id, '_fsb_subscription_limit', true ),
+			);
+
+			$trial_length = (int) get_post_meta( $product_id, '_fsb_subscription_trial_length', true );
+			if ( $trial_length > 0 ) {
+				$trial_letter                       = strtoupper( (string) get_post_meta( $product_id, '_fsb_subscription_trial_period', true ) );
+				$meta['_subscription_trial_length'] = $trial_length;
+				$meta['_subscription_trial_period'] = isset( $letter_periods[ $trial_letter ] ) ? $letter_periods[ $trial_letter ] : $period;
+			}
+
+			$maps[] = array(
+				'product_id' => $product_id,
+				'meta'       => array_filter( $meta, 'strlen' ),
+				'error'      => null,
+			);
+		}
+
+		return $maps;
+	}
+
+	/**
 	 * The store holding the source data. When both stores have rows (an HPOS
 	 * switch mid-history), the one with more rows wins.
 	 *

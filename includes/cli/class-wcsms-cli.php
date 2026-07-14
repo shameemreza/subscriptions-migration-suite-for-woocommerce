@@ -22,6 +22,75 @@ class WCSMS_CLI {
 		WP_CLI::add_command( 'wcsms resume', array( __CLASS__, 'resume' ) );
 		WP_CLI::add_command( 'wcsms export', array( __CLASS__, 'export' ) );
 		WP_CLI::add_command( 'wcsms migrate', array( __CLASS__, 'migrate' ) );
+		WP_CLI::add_command( 'wcsms convert-products', array( __CLASS__, 'convert_products' ) );
+	}
+
+	/**
+	 * Convert a source plugin's subscription products into WooCommerce
+	 * Subscriptions products.
+	 *
+	 * Sets the subscription product type and writes the _subscription_*
+	 * meta so migrated subscriptions renew with the right product behavior.
+	 * Dry run by default. Converted products are stamped and skipped on
+	 * re-runs. Variable subscription products are reported and skipped.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <source>
+	 * : The source id, as listed by wp wcsms migrate.
+	 *
+	 * [--live]
+	 * : Write the conversions.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wcsms convert-products flexible_subscriptions
+	 *     wp wcsms convert-products wpswings --live
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function convert_products( $args, $assoc_args ) {
+		if ( ! WCSMS_Plugin::is_wcs_active() ) {
+			WP_CLI::error( 'WooCommerce Subscriptions must be active to convert products.' );
+		}
+
+		$adapter = WCSMS_Sources::get( $args[0] );
+
+		if ( null === $adapter ) {
+			WP_CLI::error( sprintf( 'Unknown source "%s". Available: %s', $args[0], implode( ', ', array_keys( WCSMS_Sources::adapters() ) ) ) );
+		}
+
+		$dry_run = ! isset( $assoc_args['live'] );
+
+		if ( $dry_run ) {
+			WP_CLI::log( 'Dry run: nothing will be written. Pass --live to convert.' );
+		}
+
+		$converter = new WCSMS_Product_Converter();
+		$results   = $converter->convert_all( $adapter, $dry_run );
+
+		if ( empty( $results ) ) {
+			WP_CLI::success( 'No subscription products found for that source.' );
+			return;
+		}
+
+		$tally = array();
+		foreach ( $results as $row ) {
+			$tally[ $row['status'] ] = isset( $tally[ $row['status'] ] ) ? $tally[ $row['status'] ] + 1 : 1;
+			$line                    = sprintf( '#%d: %s', $row['product_id'], $row['message'] );
+			if ( 'failed' === $row['status'] ) {
+				WP_CLI::warning( $line );
+			} else {
+				WP_CLI::log( $line );
+			}
+		}
+
+		$parts = array();
+		foreach ( $tally as $status => $count ) {
+			$parts[] = $status . ': ' . $count;
+		}
+		WP_CLI::success( 'Done. ' . implode( ', ', $parts ) . '.' );
 	}
 
 	/**

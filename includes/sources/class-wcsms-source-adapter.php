@@ -50,6 +50,18 @@ abstract class WCSMS_Source_Adapter {
 	 *         row instead of dropping it silently.
 	 */
 	abstract public function fetch( $offset, $limit );
+
+	/**
+	 * Product conversion maps: which products the source marked as
+	 * subscription products, and the WCS product meta each should get.
+	 *
+	 * @return array<int, array{product_id: int, meta: array<string, string>, error: string|null}>
+	 *         Entries with an error are reported and skipped, never
+	 *         converted on a guess.
+	 */
+	public function product_maps() {
+		return array();
+	}
 }
 
 /**
