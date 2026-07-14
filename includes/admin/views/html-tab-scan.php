@@ -75,7 +75,7 @@ defined( 'ABSPATH' ) || exit;
 							<?php
 							$wcsms_parts = array();
 							foreach ( $wcsms_source['statuses'] as $wcsms_status => $wcsms_count ) {
-								$wcsms_parts[] = sprintf( '%s: %s', str_replace( 'wc-', '', $wcsms_status ), number_format_i18n( $wcsms_count ) );
+								$wcsms_parts[] = sprintf( '%s: %s', $wcsms_status, number_format_i18n( $wcsms_count ) );
 							}
 							echo esc_html( implode( ', ', $wcsms_parts ) );
 							?>

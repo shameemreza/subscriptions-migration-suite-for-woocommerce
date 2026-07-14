@@ -427,6 +427,10 @@ class WCSMS_Scanner {
 	/**
 	 * Turn GROUP BY rows into a normalized counts array.
 	 *
+	 * Status slugs are normalized without the wc- storage prefix, matching
+	 * the vocabulary the record format, verify output, and admin table
+	 * already use, so every surface reports the same slugs.
+	 *
 	 * @param array|null $rows  Rows with status and total keys.
 	 * @param string     $store Store label.
 	 * @return array
@@ -436,10 +440,14 @@ class WCSMS_Scanner {
 		$total    = 0;
 
 		foreach ( (array) $rows as $row ) {
-			$status              = (string) $row['status'];
-			$count               = (int) $row['total'];
-			$statuses[ $status ] = $count;
-			$total              += $count;
+			$status = str_replace( 'wc-', '', (string) $row['status'] );
+			$count  = (int) $row['total'];
+
+			if ( ! isset( $statuses[ $status ] ) ) {
+				$statuses[ $status ] = 0;
+			}
+			$statuses[ $status ] += $count;
+			$total               += $count;
 		}
 
 		arsort( $statuses );
