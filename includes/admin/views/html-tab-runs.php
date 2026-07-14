@@ -16,8 +16,7 @@ foreach ( WCSMS_Run::ids() as $wcsms_run_id ) {
 }
 ?>
 <p>
-	<?php esc_html_e( 'Background import runs. Batches process on Action Scheduler; refresh this page to follow progress.', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-	<?php echo wc_help_tip( __( 'A run that was interrupted by a crash or timeout can be resumed from its last checkpoint. Rows the earlier attempt already imported are skipped, not duplicated.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+	<?php esc_html_e( 'Background import runs. Batches process on Action Scheduler; refresh this page to follow progress. An interrupted run can be resumed from its last checkpoint, and rows the earlier attempt already imported are skipped, not duplicated.', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 </p>
 
 <?php if ( empty( $wcsms_runs ) ) : ?>

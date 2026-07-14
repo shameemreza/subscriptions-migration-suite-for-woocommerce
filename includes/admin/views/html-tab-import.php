@@ -8,8 +8,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <p>
-	<?php esc_html_e( 'Upload a JSON Lines file of subscription records. The import runs in the background and every record is matched by its source id, so re-importing a file never creates duplicates.', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-	<?php echo wc_help_tip( __( 'One JSON record per line. Records reference customers by id or email and products by id or SKU; both must already exist on this site.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+	<?php esc_html_e( 'Upload a JSON Lines file of subscription records, one record per line. The import runs in the background, and every record is matched by its source id, so re-importing a file never creates duplicates. Records reference customers by id or email and products by id or SKU; both must already exist on this site.', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 </p>
 
 <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" enctype="multipart/form-data">
@@ -28,15 +27,16 @@ defined( 'ABSPATH' ) || exit;
 				</td>
 			</tr>
 			<tr valign="top">
-				<th scope="row" class="titledesc">
-					<label for="wcsms_live"><?php esc_html_e( 'Mode', 'subscriptions-migration-suite-for-woocommerce' ); ?></label>
-					<?php echo wc_help_tip( __( 'Leave unchecked to dry run first: every record is validated and resolved, nothing is written, and problems show per line on the runs tab.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
-				</th>
+				<th scope="row" class="titledesc"><?php esc_html_e( 'Mode', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
 				<td class="forminp forminp-checkbox">
-					<label for="wcsms_live">
-						<input type="checkbox" name="wcsms_live" id="wcsms_live" value="1" />
-						<?php esc_html_e( 'Live import (writes subscriptions)', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-					</label>
+					<fieldset>
+						<legend class="screen-reader-text"><span><?php esc_html_e( 'Mode', 'subscriptions-migration-suite-for-woocommerce' ); ?></span></legend>
+						<label for="wcsms_live">
+							<input type="checkbox" name="wcsms_live" id="wcsms_live" value="1" />
+							<?php esc_html_e( 'Live import (writes subscriptions)', 'subscriptions-migration-suite-for-woocommerce' ); ?>
+						</label>
+						<?php echo wc_help_tip( __( 'Leave unchecked to dry run first: every record is validated and resolved, nothing is written, and problems show per line on the runs tab.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+					</fieldset>
 				</td>
 			</tr>
 		</tbody>

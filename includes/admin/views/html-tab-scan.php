@@ -9,8 +9,7 @@
 defined( 'ABSPATH' ) || exit;
 ?>
 <p>
-	<?php esc_html_e( 'Scan this site for subscription data from other subscription plugins, then migrate it into WooCommerce Subscriptions.', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-	<?php echo wc_help_tip( __( 'The scan is read-only. It looks for subscription records in the database, including data left behind by plugins that are no longer active.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+	<?php esc_html_e( 'Scan this site for subscription data from other subscription plugins, then migrate it into WooCommerce Subscriptions. The scan is read-only and finds records in the database even when the plugin that created them is no longer active.', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 </p>
 
 <form method="post">
@@ -101,8 +100,8 @@ defined( 'ABSPATH' ) || exit;
 									<label style="display: block; margin-bottom: 4px;">
 										<input type="checkbox" name="wcsms_live" value="1" />
 										<?php esc_html_e( 'Live', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-										<?php echo wc_help_tip( __( 'Leave unchecked to queue a dry run first: records are validated and resolved, nothing is written.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
 									</label>
+									<?php echo wc_help_tip( __( 'Leave unchecked to queue a dry run first: records are validated and resolved, nothing is written.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
 									<button type="submit" class="button button-primary"><?php esc_html_e( 'Queue migration', 'subscriptions-migration-suite-for-woocommerce' ); ?></button>
 								</form>
 							<?php else : ?>

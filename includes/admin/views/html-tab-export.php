@@ -22,13 +22,16 @@ $wcsms_gateways = WC()->payment_gateways()->get_available_payment_gateways();
 	<tbody>
 		<tr valign="top">
 			<th scope="row" class="titledesc"><?php esc_html_e( 'Statuses', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
-			<td class="forminp">
-				<?php foreach ( $wcsms_statuses as $wcsms_status_key => $wcsms_status_label ) : ?>
-					<label style="margin-right: 16px; display: inline-block;">
-						<input type="checkbox" name="wcsms_statuses[]" value="<?php echo esc_attr( str_replace( 'wc-', '', $wcsms_status_key ) ); ?>" />
-						<?php echo esc_html( $wcsms_status_label ); ?>
-					</label>
-				<?php endforeach; ?>
+			<td class="forminp forminp-checkbox">
+				<fieldset>
+					<legend class="screen-reader-text"><span><?php esc_html_e( 'Statuses', 'subscriptions-migration-suite-for-woocommerce' ); ?></span></legend>
+					<?php foreach ( $wcsms_statuses as $wcsms_status_key => $wcsms_status_label ) : ?>
+						<label style="margin-right: 16px; display: inline-block;">
+							<input type="checkbox" name="wcsms_statuses[]" value="<?php echo esc_attr( str_replace( 'wc-', '', $wcsms_status_key ) ); ?>" />
+							<?php echo esc_html( $wcsms_status_label ); ?>
+						</label>
+					<?php endforeach; ?>
+				</fieldset>
 				<p class="description"><?php esc_html_e( 'Leave all unchecked to export every status.', 'subscriptions-migration-suite-for-woocommerce' ); ?></p>
 			</td>
 		</tr>
@@ -72,15 +75,16 @@ $wcsms_gateways = WC()->payment_gateways()->get_available_payment_gateways();
 			</td>
 		</tr>
 		<tr valign="top">
-			<th scope="row" class="titledesc">
-				<?php esc_html_e( 'Payment tokens', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-				<?php echo wc_help_tip( __( 'Includes each gateway\'s recurring payment references (customer and token ids) so automatic renewals can continue on the target site. Only enable this when the file will be handled securely: the values are sensitive.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
-			</th>
-			<td class="forminp">
-				<label for="wcsms_include_tokens">
-					<input type="checkbox" name="wcsms_include_tokens" id="wcsms_include_tokens" value="1" />
-					<?php esc_html_e( 'Include payment meta in the export', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-				</label>
+			<th scope="row" class="titledesc"><?php esc_html_e( 'Payment tokens', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
+			<td class="forminp forminp-checkbox">
+				<fieldset>
+					<legend class="screen-reader-text"><span><?php esc_html_e( 'Payment tokens', 'subscriptions-migration-suite-for-woocommerce' ); ?></span></legend>
+					<label for="wcsms_include_tokens">
+						<input type="checkbox" name="wcsms_include_tokens" id="wcsms_include_tokens" value="1" />
+						<?php esc_html_e( 'Include payment meta in the export', 'subscriptions-migration-suite-for-woocommerce' ); ?>
+					</label>
+					<?php echo wc_help_tip( __( 'Includes each gateway\'s recurring payment references (customer and token ids) so automatic renewals can continue on the target site. Only enable this when the file will be handled securely: the values are sensitive.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+				</fieldset>
 			</td>
 		</tr>
 	</tbody>
