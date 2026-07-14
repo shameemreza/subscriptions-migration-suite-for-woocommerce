@@ -153,11 +153,41 @@ class WCSMS_Admin {
 			self::redirect_with_notice( 'import', 'error', $dir->get_error_message() );
 		}
 
-		$target = trailingslashit( $dir ) . 'import-' . gmdate( 'YmdHis' ) . '-' . strtolower( wp_generate_password( 8, false, false ) ) . '.jsonl';
-
-		if ( ! move_uploaded_file( $_FILES['wcsms_file']['tmp_name'], $target ) ) { // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized, WordPressVIPMinimum.Functions.RestrictedFunctions.file_ops_move_uploaded_file -- Standard upload move into a generated path.
-			self::redirect_with_notice( 'import', 'error', __( 'The uploaded file could not be stored.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		if ( ! function_exists( 'wp_handle_upload' ) ) {
+			require_once ABSPATH . 'wp-admin/includes/file.php';
 		}
+
+		// Route the upload into the protected directory with an unguessable
+		// name. Type checking is ours: the extension whitelist above plus
+		// the first-record parse below; finfo has no reliable opinion on
+		// JSON Lines, so test_type would reject valid files.
+		$redirect_upload_dir = static function ( $dirs ) use ( $dir ) {
+			$dirs['path']   = $dir;
+			$dirs['url']    = $dirs['baseurl'] . '/wcsms-imports';
+			$dirs['subdir'] = '/wcsms-imports';
+			return $dirs;
+		};
+
+		add_filter( 'upload_dir', $redirect_upload_dir );
+
+		$upload = wp_handle_upload(
+			$_FILES['wcsms_file'], // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- wp_handle_upload performs its own handling.
+			array(
+				'test_form'                => false,
+				'test_type'                => false,
+				'unique_filename_callback' => static function () {
+					return 'import-' . gmdate( 'YmdHis' ) . '-' . strtolower( wp_generate_password( 8, false, false ) ) . '.jsonl';
+				},
+			)
+		);
+
+		remove_filter( 'upload_dir', $redirect_upload_dir );
+
+		if ( ! empty( $upload['error'] ) || empty( $upload['file'] ) ) {
+			self::redirect_with_notice( 'import', 'error', ! empty( $upload['error'] ) ? $upload['error'] : __( 'The uploaded file could not be stored.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		$target = $upload['file'];
 
 		if ( ! self::first_record_parses( $target ) ) {
 			wp_delete_file( $target );

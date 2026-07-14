@@ -209,7 +209,7 @@ class WCSMS_Exporter {
 		}
 
 		/** This filter is documented in WooCommerce Subscriptions. */
-		$declared = apply_filters( 'woocommerce_subscription_payment_meta', array(), $subscription );
+		$declared = apply_filters( 'woocommerce_subscription_payment_meta', array(), $subscription ); // phpcs:ignore WordPress.NamingConventions.PrefixAllGlobals.NonPrefixedHooknameFound -- Applying WooCommerce Subscriptions' own filter, not defining a new hook.
 
 		if ( empty( $declared[ $payment['method'] ] ) ) {
 			return $payment;

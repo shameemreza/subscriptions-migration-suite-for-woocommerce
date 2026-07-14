@@ -50,12 +50,12 @@ defined( 'ABSPATH' ) || exit;
 				</tr>
 			</thead>
 			<tbody>
-				<?php foreach ( $scan_results['sources'] as $source ) : ?>
+				<?php foreach ( $scan_results['sources'] as $wcsms_source ) : ?>
 					<tr>
-						<td><strong><?php echo esc_html( $source['label'] ); ?></strong></td>
+						<td><strong><?php echo esc_html( $wcsms_source['label'] ); ?></strong></td>
 						<td>
 							<?php
-							echo $source['plugin_active']
+							echo $wcsms_source['plugin_active']
 								? esc_html__( 'Active', 'subscriptions-migration-suite-for-woocommerce' )
 								: esc_html__( 'Inactive', 'subscriptions-migration-suite-for-woocommerce' );
 							?>
@@ -67,36 +67,36 @@ defined( 'ABSPATH' ) || exit;
 								'posts' => __( 'Posts table', 'subscriptions-migration-suite-for-woocommerce' ),
 								'table' => __( 'Custom tables', 'subscriptions-migration-suite-for-woocommerce' ),
 							);
-							echo esc_html( isset( $wcsms_store_labels[ $source['store'] ] ) ? $wcsms_store_labels[ $source['store'] ] : $source['store'] );
+							echo esc_html( isset( $wcsms_store_labels[ $wcsms_source['store'] ] ) ? $wcsms_store_labels[ $wcsms_source['store'] ] : $wcsms_source['store'] );
 							?>
 						</td>
-						<td><?php echo esc_html( number_format_i18n( $source['total'] ) ); ?></td>
+						<td><?php echo esc_html( number_format_i18n( $wcsms_source['total'] ) ); ?></td>
 						<td>
 							<?php
-							$parts = array();
-							foreach ( $source['statuses'] as $status => $count ) {
-								$parts[] = sprintf( '%s: %s', str_replace( 'wc-', '', $status ), number_format_i18n( $count ) );
+							$wcsms_parts = array();
+							foreach ( $wcsms_source['statuses'] as $wcsms_status => $wcsms_count ) {
+								$wcsms_parts[] = sprintf( '%s: %s', str_replace( 'wc-', '', $wcsms_status ), number_format_i18n( $wcsms_count ) );
 							}
-							echo esc_html( implode( ', ', $parts ) );
+							echo esc_html( implode( ', ', $wcsms_parts ) );
 							?>
 						</td>
 						<td>
 							<?php
-							$labels = WCSMS_Continuity::labels();
-							$parts  = array();
-							foreach ( $source['continuity'] as $bucket => $count ) {
-								$label   = isset( $labels[ $bucket ] ) ? $labels[ $bucket ] : $bucket;
-								$parts[] = sprintf( '%s: %s', $label, number_format_i18n( $count ) );
+							$wcsms_labels = WCSMS_Continuity::labels();
+							$wcsms_parts  = array();
+							foreach ( $wcsms_source['continuity'] as $wcsms_bucket => $wcsms_count ) {
+								$wcsms_label   = isset( $wcsms_labels[ $wcsms_bucket ] ) ? $wcsms_labels[ $wcsms_bucket ] : $wcsms_bucket;
+								$wcsms_parts[] = sprintf( '%s: %s', $wcsms_label, number_format_i18n( $wcsms_count ) );
 							}
-							echo esc_html( implode( ', ', $parts ) );
+							echo esc_html( implode( ', ', $wcsms_parts ) );
 							?>
 						</td>
 						<td>
-							<?php if ( null !== WCSMS_Sources::get( $source['id'] ) ) : ?>
+							<?php if ( null !== WCSMS_Sources::get( $wcsms_source['id'] ) ) : ?>
 								<form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>">
 									<?php wp_nonce_field( WCSMS_Admin::MIGRATE_ACTION ); ?>
 									<input type="hidden" name="action" value="<?php echo esc_attr( WCSMS_Admin::MIGRATE_ACTION ); ?>" />
-									<input type="hidden" name="wcsms_source" value="<?php echo esc_attr( $source['id'] ); ?>" />
+									<input type="hidden" name="wcsms_source" value="<?php echo esc_attr( $wcsms_source['id'] ); ?>" />
 									<label style="display: block; margin-bottom: 4px;">
 										<input type="checkbox" name="wcsms_live" value="1" />
 										<?php esc_html_e( 'Live', 'subscriptions-migration-suite-for-woocommerce' ); ?>
