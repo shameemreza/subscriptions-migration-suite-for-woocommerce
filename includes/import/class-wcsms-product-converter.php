@@ -7,8 +7,10 @@
  * _subscription_* meta, so migrated subscriptions renew with the right
  * product behavior and the products keep selling as subscriptions.
  *
- * Simple products only for now: variable subscription conversion needs
- * per-variation meta and is reported as skipped, not guessed.
+ * Variable products convert too: the parent becomes variable-subscription
+ * and each variation gets its own _subscription_* meta from the map the
+ * adapter built. A variation the adapter could not decode fails that
+ * product with a clear message instead of converting half of it.
  *
  * @package WCSMS
  */
@@ -68,17 +70,27 @@ class WCSMS_Product_Converter {
 			return $this->result( $product_id, 'skipped', __( 'Already a subscription product.', 'subscriptions-migration-suite-for-woocommerce' ) );
 		}
 
+		$is_variable = ! empty( $map['variations'] );
+		$target_type = $is_variable ? 'variable-subscription' : 'subscription';
+
 		if ( $dry_run ) {
-			return $this->result( $product_id, 'dry_run', sprintf( 'Would convert "%s" to a subscription product.', $product->get_name() ) );
+			return $this->result(
+				$product_id,
+				'dry_run',
+				$is_variable
+					? sprintf( 'Would convert "%s" to a variable subscription product (%d variations).', $product->get_name(), count( $map['variations'] ) )
+					: sprintf( 'Would convert "%s" to a subscription product.', $product->get_name() )
+			);
 		}
 
-		wp_set_object_terms( $product_id, 'subscription', 'product_type' );
+		wp_set_object_terms( $product_id, $target_type, 'product_type' );
 
 		$meta = $map['meta'];
 
-		// WCS reads the recurring price from _subscription_price; default it
-		// to the product's own price when the source kept it there.
-		if ( ! isset( $meta['_subscription_price'] ) ) {
+		// WCS reads the recurring price from _subscription_price. Simple
+		// products default it to their own price; variable parents derive
+		// prices from variations, so no parent default there.
+		if ( ! $is_variable && ! isset( $meta['_subscription_price'] ) ) {
 			$meta['_subscription_price'] = $product->get_regular_price() ? $product->get_regular_price() : $product->get_price();
 		}
 
@@ -86,13 +98,44 @@ class WCSMS_Product_Converter {
 			update_post_meta( $product_id, $key, $value );
 		}
 
+		if ( $is_variable ) {
+			foreach ( $map['variations'] as $variation ) {
+				$variation_id   = (int) $variation['variation_id'];
+				$variation_meta = $variation['meta'];
+
+				if ( ! isset( $variation_meta['_subscription_price'] ) ) {
+					$variation_price = get_post_meta( $variation_id, '_regular_price', true );
+					if ( '' === $variation_price ) {
+						$variation_price = get_post_meta( $variation_id, '_price', true );
+					}
+					if ( '' !== $variation_price ) {
+						$variation_meta['_subscription_price'] = $variation_price;
+					}
+				}
+
+				foreach ( $variation_meta as $key => $value ) {
+					update_post_meta( $variation_id, $key, $value );
+				}
+			}
+		}
+
 		update_post_meta( $product_id, self::META_CONVERTED_FROM, $source_id );
 
 		wc_delete_product_transients( $product_id );
 
-		WCSMS_Logger::log( sprintf( 'Converted product #%d to a subscription product (source %s).', $product_id, $source_id ) );
+		if ( $is_variable && class_exists( 'WC_Product_Variable' ) ) {
+			WC_Product_Variable::sync( $product_id );
+		}
 
-		return $this->result( $product_id, 'converted', sprintf( 'Converted "%s".', $product->get_name() ) );
+		WCSMS_Logger::log( sprintf( 'Converted product #%d to a %s product (source %s).', $product_id, $target_type, $source_id ) );
+
+		return $this->result(
+			$product_id,
+			'converted',
+			$is_variable
+				? sprintf( 'Converted "%s" (%d variations).', $product->get_name(), count( $map['variations'] ) )
+				: sprintf( 'Converted "%s".', $product->get_name() )
+		);
 	}
 
 	/**

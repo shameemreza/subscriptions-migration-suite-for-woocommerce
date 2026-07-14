@@ -486,59 +486,145 @@ class WCSMS_Source_Flexible_Subscriptions extends WCSMS_Source_Adapter {
 			$product_id = (int) $row['object_id'];
 
 			if ( 'fsb-variable-subscription' === $row['slug'] ) {
+				$maps[] = $this->variable_product_map( $product_id, $letter_periods );
+				continue;
+			}
+
+			$meta = $this->subscription_meta_for( $product_id, 0, $letter_periods );
+
+			if ( null === $meta ) {
 				$maps[] = array(
 					'product_id' => $product_id,
 					'meta'       => array(),
-					'error'      => __( 'Variable subscription products need per-variation conversion, which is not supported yet.', 'subscriptions-migration-suite-for-woocommerce' ),
+					'error'      => __( 'Unrecognized subscription period on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
 				);
 				continue;
 			}
 
-			$period_letter = strtoupper( (string) get_post_meta( $product_id, '_fsb_subscription_period', true ) );
-			$period        = isset( $letter_periods[ $period_letter ] ) ? $letter_periods[ $period_letter ] : '';
-
-			if ( '' === $period ) {
-				$maps[] = array(
-					'product_id' => $product_id,
-					'meta'       => array(),
-					'error'      => sprintf(
-						/* translators: %s: period value from the source product. */
-						__( 'Unrecognized subscription period "%s" on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
-						$period_letter
-					),
-				);
-				continue;
-			}
-
-			$meta = array(
-				'_subscription_period'          => $period,
-				'_subscription_period_interval' => max( 1, (int) get_post_meta( $product_id, '_fsb_subscription_interval', true ) ),
-				'_subscription_length'          => (int) get_post_meta( $product_id, '_fsb_subscription_length', true ),
-				'_subscription_sign_up_fee'     => (string) get_post_meta( $product_id, '_fsb_subscription_sign_up_fee', true ),
-				'_subscription_one_time_shipping' => 'yes' === get_post_meta( $product_id, '_fsb_subscription_one_time_shipping', true ) ? 'yes' : 'no',
-				'_subscription_limit'           => (string) get_post_meta( $product_id, '_fsb_subscription_limit', true ),
-			);
-
-			$trial_length = (int) get_post_meta( $product_id, '_fsb_subscription_trial_length', true );
-			if ( $trial_length > 0 ) {
-				$trial_letter                       = strtoupper( (string) get_post_meta( $product_id, '_fsb_subscription_trial_period', true ) );
-				$meta['_subscription_trial_length'] = $trial_length;
-				$meta['_subscription_trial_period'] = isset( $letter_periods[ $trial_letter ] ) ? $letter_periods[ $trial_letter ] : $period;
+			$meta['_subscription_one_time_shipping'] = 'yes' === get_post_meta( $product_id, '_fsb_subscription_one_time_shipping', true ) ? 'yes' : 'no';
+			$limit                                   = (string) get_post_meta( $product_id, '_fsb_subscription_limit', true );
+			if ( '' !== $limit ) {
+				$meta['_subscription_limit'] = $limit;
 			}
 
 			$maps[] = array(
 				'product_id' => $product_id,
-				'meta'       => array_filter(
-					$meta,
-					static function ( $value ) {
-						return '' !== (string) $value;
-					}
-				),
+				'meta'       => $meta,
 				'error'      => null,
 			);
 		}
 
 		return $maps;
+	}
+
+	/**
+	 * Map a variable subscription product: parent-level settings plus one
+	 * meta set per variation, read from the variation with the parent as
+	 * fallback. One undecodable variation fails the whole product rather
+	 * than converting half of it.
+	 *
+	 * @param int   $product_id     Parent product id.
+	 * @param array $letter_periods Letter to period map.
+	 * @return array
+	 */
+	private function variable_product_map( $product_id, $letter_periods ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+		$variation_ids = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product_variation' AND post_parent = %d AND post_status = 'publish' ORDER BY ID ASC", $product_id ) );
+
+		if ( empty( $variation_ids ) ) {
+			return array(
+				'product_id' => $product_id,
+				'meta'       => array(),
+				'error'      => __( 'Variable subscription product has no published variations.', 'subscriptions-migration-suite-for-woocommerce' ),
+			);
+		}
+
+		$variations = array();
+
+		foreach ( $variation_ids as $variation_id ) {
+			$variation_id   = (int) $variation_id;
+			$variation_meta = $this->subscription_meta_for( $variation_id, $product_id, $letter_periods );
+
+			if ( null === $variation_meta ) {
+				return array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => sprintf(
+						/* translators: %d: variation id. */
+						__( 'Variation #%d has no recognizable subscription period.', 'subscriptions-migration-suite-for-woocommerce' ),
+						$variation_id
+					),
+				);
+			}
+
+			$variations[] = array(
+				'variation_id' => $variation_id,
+				'meta'         => $variation_meta,
+			);
+		}
+
+		$parent_meta = array(
+			'_subscription_one_time_shipping' => 'yes' === get_post_meta( $product_id, '_fsb_subscription_one_time_shipping', true ) ? 'yes' : 'no',
+		);
+		$limit       = (string) get_post_meta( $product_id, '_fsb_subscription_limit', true );
+		if ( '' !== $limit ) {
+			$parent_meta['_subscription_limit'] = $limit;
+		}
+
+		return array(
+			'product_id' => $product_id,
+			'meta'       => $parent_meta,
+			'variations' => $variations,
+			'error'      => null,
+		);
+	}
+
+	/**
+	 * Billing meta for a product or variation, falling back to the parent
+	 * for keys a variation does not set.
+	 *
+	 * @param int   $post_id        Product or variation id.
+	 * @param int   $fallback_id    Parent id for fallback reads, 0 for none.
+	 * @param array $letter_periods Letter to period map.
+	 * @return array|null Null when the period cannot be decoded.
+	 */
+	private function subscription_meta_for( $post_id, $fallback_id, $letter_periods ) {
+		$read = static function ( $key ) use ( $post_id, $fallback_id ) {
+			$value = get_post_meta( $post_id, $key, true );
+			if ( '' === $value && $fallback_id ) {
+				$value = get_post_meta( $fallback_id, $key, true );
+			}
+			return $value;
+		};
+
+		$period_letter = strtoupper( (string) $read( '_fsb_subscription_period' ) );
+		$period        = isset( $letter_periods[ $period_letter ] ) ? $letter_periods[ $period_letter ] : '';
+
+		if ( '' === $period ) {
+			return null;
+		}
+
+		$meta = array(
+			'_subscription_period'          => $period,
+			'_subscription_period_interval' => max( 1, (int) $read( '_fsb_subscription_interval' ) ),
+			'_subscription_length'          => (int) $read( '_fsb_subscription_length' ),
+		);
+
+		$fee = (string) $read( '_fsb_subscription_sign_up_fee' );
+		if ( '' !== $fee ) {
+			$meta['_subscription_sign_up_fee'] = $fee;
+		}
+
+		$trial_length = (int) $read( '_fsb_subscription_trial_length' );
+		if ( $trial_length > 0 ) {
+			$trial_letter                       = strtoupper( (string) $read( '_fsb_subscription_trial_period' ) );
+			$meta['_subscription_trial_length'] = $trial_length;
+			$meta['_subscription_trial_period'] = isset( $letter_periods[ $trial_letter ] ) ? $letter_periods[ $trial_letter ] : $period;
+		}
+
+		return $meta;
 	}
 
 	/**

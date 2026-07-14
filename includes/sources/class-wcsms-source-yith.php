@@ -401,46 +401,129 @@ class WCSMS_Source_YITH extends WCSMS_Source_Adapter {
 
 		foreach ( $product_ids as $product_id ) {
 			$product_id = (int) $product_id;
-			$period     = $this->singular_period( (string) get_post_meta( $product_id, '_ywsbs_price_time_option', true ) );
 
-			if ( '' === $period ) {
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+			$variation_ids = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product_variation' AND post_parent = %d AND post_status = 'publish' ORDER BY ID ASC", $product_id ) );
+
+			if ( ! empty( $variation_ids ) ) {
+				$maps[] = $this->variable_product_map( $product_id, array_map( 'intval', $variation_ids ) );
+				continue;
+			}
+
+			$meta = $this->subscription_meta_for( $product_id, 0 );
+
+			if ( null === $meta ) {
 				$maps[] = array(
 					'product_id' => $product_id,
 					'meta'       => array(),
-					'error'      => sprintf(
-						/* translators: %s: period value from the source product. */
-						__( 'Unrecognized subscription period "%s" on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
-						(string) get_post_meta( $product_id, '_ywsbs_price_time_option', true )
-					),
+					'error'      => __( 'Unrecognized subscription period on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
 				);
 				continue;
 			}
 
-			$meta = array(
-				'_subscription_period'          => $period,
-				'_subscription_period_interval' => max( 1, (int) get_post_meta( $product_id, '_ywsbs_price_is_per', true ) ),
-			);
-
-			// Max length is counted in the same unit as the billing period,
-			// which is exactly how WCS counts _subscription_length.
-			$max_length = (int) get_post_meta( $product_id, '_ywsbs_max_length', true );
-			if ( 'yes' === get_post_meta( $product_id, '_ywsbs_enable_max_length', true ) && $max_length > 0 ) {
-				$meta['_subscription_length'] = $max_length;
-			}
-
-			if ( 'yes' === get_post_meta( $product_id, '_ywsbs_enable_limit', true ) ) {
-				$limit                       = (string) get_post_meta( $product_id, '_ywsbs_limit', true );
-				$meta['_subscription_limit'] = 'one-active' === $limit ? 'active' : 'any';
-			}
-
 			$maps[] = array(
 				'product_id' => $product_id,
-				'meta'       => $meta,
+				'meta'       => array_merge( $meta, $this->parent_level_meta( $product_id ) ),
 				'error'      => null,
 			);
 		}
 
 		return $maps;
+	}
+
+	/**
+	 * Map a variable subscription product with per-variation meta, parent
+	 * values as fallback. The source flags the parent and stores billing
+	 * settings on variations for variable products.
+	 *
+	 * @param int   $product_id    Parent product id.
+	 * @param int[] $variation_ids Published variation ids.
+	 * @return array
+	 */
+	private function variable_product_map( $product_id, $variation_ids ) {
+		$variations = array();
+
+		foreach ( $variation_ids as $variation_id ) {
+			$variation_meta = $this->subscription_meta_for( $variation_id, $product_id );
+
+			if ( null === $variation_meta ) {
+				return array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => sprintf(
+						/* translators: %d: variation id. */
+						__( 'Variation #%d has no recognizable subscription period.', 'subscriptions-migration-suite-for-woocommerce' ),
+						$variation_id
+					),
+				);
+			}
+
+			$variations[] = array(
+				'variation_id' => $variation_id,
+				'meta'         => $variation_meta,
+			);
+		}
+
+		return array(
+			'product_id' => $product_id,
+			'meta'       => $this->parent_level_meta( $product_id ),
+			'variations' => $variations,
+			'error'      => null,
+		);
+	}
+
+	/**
+	 * Billing meta for a product or variation, parent fallback included.
+	 *
+	 * @param int $post_id     Product or variation id.
+	 * @param int $fallback_id Parent id for fallback reads, 0 for none.
+	 * @return array|null Null when the period cannot be decoded.
+	 */
+	private function subscription_meta_for( $post_id, $fallback_id ) {
+		$read = static function ( $key ) use ( $post_id, $fallback_id ) {
+			$value = get_post_meta( $post_id, $key, true );
+			if ( '' === $value && $fallback_id ) {
+				$value = get_post_meta( $fallback_id, $key, true );
+			}
+			return $value;
+		};
+
+		$period = $this->singular_period( (string) $read( '_ywsbs_price_time_option' ) );
+
+		if ( '' === $period ) {
+			return null;
+		}
+
+		$meta = array(
+			'_subscription_period'          => $period,
+			'_subscription_period_interval' => max( 1, (int) $read( '_ywsbs_price_is_per' ) ),
+		);
+
+		// Max length is counted in the same unit as the billing period,
+		// which is exactly how WCS counts _subscription_length.
+		$max_length = (int) $read( '_ywsbs_max_length' );
+		if ( 'yes' === $read( '_ywsbs_enable_max_length' ) && $max_length > 0 ) {
+			$meta['_subscription_length'] = $max_length;
+		}
+
+		return $meta;
+	}
+
+	/**
+	 * Parent-level settings that live on the product regardless of type.
+	 *
+	 * @param int $product_id Parent product id.
+	 * @return array
+	 */
+	private function parent_level_meta( $product_id ) {
+		$meta = array();
+
+		if ( 'yes' === get_post_meta( $product_id, '_ywsbs_enable_limit', true ) ) {
+			$limit                       = (string) get_post_meta( $product_id, '_ywsbs_limit', true );
+			$meta['_subscription_limit'] = 'one-active' === $limit ? 'active' : 'any';
+		}
+
+		return $meta;
 	}
 
 	/**

@@ -405,64 +405,133 @@ class WCSMS_Source_WPSwings extends WCSMS_Source_Adapter {
 			$product_id = (int) $product_id;
 
 			if ( 'yes' === get_post_meta( $product_id, 'wps_sfw_variable_product', true ) ) {
-				$maps[] = array(
-					'product_id' => $product_id,
-					'meta'       => array(),
-					'error'      => __( 'Variable subscription products need per-variation conversion, which is not supported yet.', 'subscriptions-migration-suite-for-woocommerce' ),
-				);
+				$maps[] = $this->variable_product_map( $product_id );
 				continue;
 			}
 
-			$period   = (string) get_post_meta( $product_id, 'wps_sfw_subscription_interval', true );
-			$interval = max( 1, (int) get_post_meta( $product_id, 'wps_sfw_subscription_number', true ) );
+			$meta = $this->subscription_meta_for( $product_id, 0 );
 
-			if ( ! in_array( $period, array( 'day', 'week', 'month', 'year' ), true ) ) {
+			if ( null === $meta ) {
 				$maps[] = array(
 					'product_id' => $product_id,
 					'meta'       => array(),
-					'error'      => sprintf(
-						/* translators: %s: period value from the source product. */
-						__( 'Unrecognized subscription period "%s" on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
-						$period
-					),
+					'error'      => __( 'Unrecognized subscription period on the source product.', 'subscriptions-migration-suite-for-woocommerce' ),
 				);
 				continue;
-			}
-
-			$meta = array(
-				'_subscription_period'          => $period,
-				'_subscription_period_interval' => $interval,
-				'_subscription_sign_up_fee'     => (string) get_post_meta( $product_id, 'wps_sfw_subscription_initial_signup_price', true ),
-			);
-
-			// WCS length counts billing periods, so the source expiry maps
-			// only when its unit matches the billing period.
-			$expiry_number   = (int) get_post_meta( $product_id, 'wps_sfw_subscription_expiry_number', true );
-			$expiry_interval = (string) get_post_meta( $product_id, 'wps_sfw_subscription_expiry_interval', true );
-			if ( $expiry_number > 0 && $expiry_interval === $period ) {
-				$meta['_subscription_length'] = $expiry_number;
-			}
-
-			$trial_number = (int) get_post_meta( $product_id, 'wps_sfw_subscription_free_trial_number', true );
-			if ( $trial_number > 0 ) {
-				$trial_interval                     = (string) get_post_meta( $product_id, 'wps_sfw_subscription_free_trial_interval', true );
-				$meta['_subscription_trial_length'] = $trial_number;
-				$meta['_subscription_trial_period'] = in_array( $trial_interval, array( 'day', 'week', 'month', 'year' ), true ) ? $trial_interval : $period;
 			}
 
 			$maps[] = array(
 				'product_id' => $product_id,
-				'meta'       => array_filter(
-					$meta,
-					static function ( $value ) {
-						return '' !== (string) $value;
-					}
-				),
+				'meta'       => $meta,
 				'error'      => null,
 			);
 		}
 
 		return $maps;
+	}
+
+	/**
+	 * Map a variable subscription product with per-variation meta, parent
+	 * values as fallback. One undecodable variation fails the product.
+	 *
+	 * @param int $product_id Parent product id.
+	 * @return array
+	 */
+	private function variable_product_map( $product_id ) {
+		global $wpdb;
+
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Read-only migration source scan.
+		$variation_ids = $wpdb->get_col( $wpdb->prepare( "SELECT ID FROM {$wpdb->posts} WHERE post_type = 'product_variation' AND post_parent = %d AND post_status = 'publish' ORDER BY ID ASC", $product_id ) );
+
+		if ( empty( $variation_ids ) ) {
+			return array(
+				'product_id' => $product_id,
+				'meta'       => array(),
+				'error'      => __( 'Variable subscription product has no published variations.', 'subscriptions-migration-suite-for-woocommerce' ),
+			);
+		}
+
+		$variations = array();
+
+		foreach ( $variation_ids as $variation_id ) {
+			$variation_id   = (int) $variation_id;
+			$variation_meta = $this->subscription_meta_for( $variation_id, $product_id );
+
+			if ( null === $variation_meta ) {
+				return array(
+					'product_id' => $product_id,
+					'meta'       => array(),
+					'error'      => sprintf(
+						/* translators: %d: variation id. */
+						__( 'Variation #%d has no recognizable subscription period.', 'subscriptions-migration-suite-for-woocommerce' ),
+						$variation_id
+					),
+				);
+			}
+
+			$variations[] = array(
+				'variation_id' => $variation_id,
+				'meta'         => $variation_meta,
+			);
+		}
+
+		return array(
+			'product_id' => $product_id,
+			'meta'       => array(),
+			'variations' => $variations,
+			'error'      => null,
+		);
+	}
+
+	/**
+	 * Billing meta for a product or variation, parent fallback included.
+	 *
+	 * @param int $post_id     Product or variation id.
+	 * @param int $fallback_id Parent id for fallback reads, 0 for none.
+	 * @return array|null Null when the period cannot be decoded.
+	 */
+	private function subscription_meta_for( $post_id, $fallback_id ) {
+		$read = static function ( $key ) use ( $post_id, $fallback_id ) {
+			$value = get_post_meta( $post_id, $key, true );
+			if ( '' === $value && $fallback_id ) {
+				$value = get_post_meta( $fallback_id, $key, true );
+			}
+			return $value;
+		};
+
+		$period   = (string) $read( 'wps_sfw_subscription_interval' );
+		$interval = max( 1, (int) $read( 'wps_sfw_subscription_number' ) );
+
+		if ( ! in_array( $period, array( 'day', 'week', 'month', 'year' ), true ) ) {
+			return null;
+		}
+
+		$meta = array(
+			'_subscription_period'          => $period,
+			'_subscription_period_interval' => $interval,
+		);
+
+		$fee = (string) $read( 'wps_sfw_subscription_initial_signup_price' );
+		if ( '' !== $fee ) {
+			$meta['_subscription_sign_up_fee'] = $fee;
+		}
+
+		// WCS length counts billing periods, so the source expiry maps
+		// only when its unit matches the billing period.
+		$expiry_number   = (int) $read( 'wps_sfw_subscription_expiry_number' );
+		$expiry_interval = (string) $read( 'wps_sfw_subscription_expiry_interval' );
+		if ( $expiry_number > 0 && $expiry_interval === $period ) {
+			$meta['_subscription_length'] = $expiry_number;
+		}
+
+		$trial_number = (int) $read( 'wps_sfw_subscription_free_trial_number' );
+		if ( $trial_number > 0 ) {
+			$trial_interval                     = (string) $read( 'wps_sfw_subscription_free_trial_interval' );
+			$meta['_subscription_trial_length'] = $trial_number;
+			$meta['_subscription_trial_period'] = in_array( $trial_interval, array( 'day', 'week', 'month', 'year' ), true ) ? $trial_interval : $period;
+		}
+
+		return $meta;
 	}
 
 	/**
