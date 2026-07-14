@@ -153,6 +153,7 @@ class WCSMS_Exporter {
 				'cart_tax'       => (float) $subscription->get_cart_tax(),
 			),
 			'customer_note'           => $subscription->get_customer_note(),
+			'tax_lines'               => $this->collect_tax_lines( $subscription ),
 		);
 
 		/**
@@ -232,17 +233,73 @@ class WCSMS_Exporter {
 	}
 
 	/**
-	 * Line items with product references and totals.
+	 * Tax lines keyed by rate code, not rate id: rate ids are rows in this
+	 * site's tax tables and mean nothing on a target site, while codes
+	 * (US-TX-STANDARD-1) can be resolved there.
+	 *
+	 * @param WC_Subscription $subscription Subscription.
+	 * @return array<int, array>
+	 */
+	private function collect_tax_lines( $subscription ) {
+		$lines = array();
+
+		foreach ( $subscription->get_taxes() as $tax ) {
+			$lines[] = array(
+				'rate_code'          => $tax->get_rate_code(),
+				'label'              => $tax->get_label(),
+				'compound'           => $tax->get_compound(),
+				'tax_total'          => (float) $tax->get_tax_total(),
+				'shipping_tax_total' => (float) $tax->get_shipping_tax_total(),
+			);
+		}
+
+		return $lines;
+	}
+
+	/**
+	 * Rate id => rate code map for this subscription's tax lines, used to
+	 * key item taxes portably.
+	 *
+	 * @param WC_Subscription $subscription Subscription.
+	 * @return array<int, string>
+	 */
+	private function rate_codes( $subscription ) {
+		$codes = array();
+
+		foreach ( $subscription->get_taxes() as $tax ) {
+			$codes[ (int) $tax->get_rate_id() ] = $tax->get_rate_code();
+		}
+
+		return $codes;
+	}
+
+	/**
+	 * Line items with product references, totals, and taxes keyed by rate code.
 	 *
 	 * @param WC_Subscription $subscription Subscription.
 	 * @return array<int, array>
 	 */
 	private function collect_items( $subscription ) {
-		$items = array();
+		$items      = array();
+		$rate_codes = $this->rate_codes( $subscription );
 
 		foreach ( $subscription->get_items() as $item ) {
 			$product_id = $item->get_variation_id() ? $item->get_variation_id() : $item->get_product_id();
 			$product    = $item->get_product();
+
+			$taxes     = array();
+			$item_data = $item->get_taxes();
+			foreach ( array( 'total', 'subtotal' ) as $tax_key ) {
+				if ( empty( $item_data[ $tax_key ] ) ) {
+					continue;
+				}
+				foreach ( $item_data[ $tax_key ] as $rate_id => $amount ) {
+					if ( '' === (string) $amount || ! isset( $rate_codes[ (int) $rate_id ] ) ) {
+						continue;
+					}
+					$taxes[ $rate_codes[ (int) $rate_id ] ][ $tax_key ] = (float) $amount;
+				}
+			}
 
 			$items[] = array(
 				'product_id'   => $product_id,
@@ -252,6 +309,7 @@ class WCSMS_Exporter {
 				'total'        => (float) $item->get_total(),
 				'subtotal_tax' => (float) $item->get_subtotal_tax(),
 				'total_tax'    => (float) $item->get_total_tax(),
+				'taxes'        => $taxes,
 			);
 		}
 

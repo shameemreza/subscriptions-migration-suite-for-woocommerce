@@ -92,6 +92,7 @@ class WCSMS_Record {
 			'customer_note'           => isset( $raw['customer_note'] ) ? sanitize_textarea_field( $raw['customer_note'] ) : '',
 			'order_notes'             => array(),
 			'parent_order_id'         => isset( $raw['parent_order_id'] ) ? absint( $raw['parent_order_id'] ) : 0,
+			'tax_lines'               => self::normalize_tax_lines( $raw ),
 		);
 
 		if ( '' === $record['source'] || '' === $record['source_id'] ) {
@@ -265,13 +266,58 @@ class WCSMS_Record {
 			'total'        => isset( $item['total'] ) && is_numeric( $item['total'] ) ? (float) $item['total'] : null,
 			'subtotal_tax' => isset( $item['subtotal_tax'] ) && is_numeric( $item['subtotal_tax'] ) ? (float) $item['subtotal_tax'] : 0.0,
 			'total_tax'    => isset( $item['total_tax'] ) && is_numeric( $item['total_tax'] ) ? (float) $item['total_tax'] : 0.0,
+			'taxes'        => array(),
 		);
+
+		if ( isset( $item['taxes'] ) && is_array( $item['taxes'] ) ) {
+			foreach ( $item['taxes'] as $rate_code => $amounts ) {
+				$rate_code = sanitize_text_field( (string) $rate_code );
+				if ( '' === $rate_code || ! is_array( $amounts ) ) {
+					continue;
+				}
+				foreach ( array( 'total', 'subtotal' ) as $tax_key ) {
+					if ( isset( $amounts[ $tax_key ] ) && is_numeric( $amounts[ $tax_key ] ) ) {
+						$normalized['taxes'][ $rate_code ][ $tax_key ] = (float) $amounts[ $tax_key ];
+					}
+				}
+			}
+		}
 
 		if ( 0 === $normalized['product_id'] && '' === $normalized['sku'] ) {
 			return null;
 		}
 
 		return $normalized;
+	}
+
+	/**
+	 * Normalize the tax lines block.
+	 *
+	 * @param array $raw Raw record.
+	 * @return array<int, array>
+	 */
+	private static function normalize_tax_lines( $raw ) {
+		$lines = array();
+
+		if ( empty( $raw['tax_lines'] ) || ! is_array( $raw['tax_lines'] ) ) {
+			return $lines;
+		}
+
+		foreach ( $raw['tax_lines'] as $line ) {
+			if ( ! is_array( $line ) || empty( $line['rate_code'] ) ) {
+				continue;
+			}
+
+			$lines[] = array(
+				'rate_code'          => sanitize_text_field( (string) $line['rate_code'] ),
+				'label'              => isset( $line['label'] ) ? sanitize_text_field( (string) $line['label'] ) : '',
+				'compound'           => ! empty( $line['compound'] ),
+				'tax_total'          => isset( $line['tax_total'] ) && is_numeric( $line['tax_total'] ) ? (float) $line['tax_total'] : 0.0,
+				'shipping_tax_total' => isset( $line['shipping_tax_total'] ) && is_numeric( $line['shipping_tax_total'] ) ? (float) $line['shipping_tax_total'] : 0.0,
+			);
+		}
+
+		return $lines;
 	}
 
 	/**

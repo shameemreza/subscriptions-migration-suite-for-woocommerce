@@ -277,6 +277,25 @@ class WCSMS_Importer {
 			$subscription->set_address( $record['shipping_address'], 'shipping' );
 		}
 
+		$rate_ids = $this->resolve_tax_rates( $record, $result );
+
+		foreach ( $record['tax_lines'] as $line ) {
+			if ( ! isset( $rate_ids[ $line['rate_code'] ] ) ) {
+				continue;
+			}
+
+			$tax_item = new WC_Order_Item_Tax();
+			// set_rate() derives the code, label, and compound flag from the
+			// site's rate row; set_rate_id() alone would leave them empty.
+			$tax_item->set_rate( $rate_ids[ $line['rate_code'] ] );
+			if ( '' !== $line['label'] ) {
+				$tax_item->set_label( $line['label'] );
+			}
+			$tax_item->set_tax_total( $line['tax_total'] );
+			$tax_item->set_shipping_tax_total( $line['shipping_tax_total'] );
+			$subscription->add_item( $tax_item );
+		}
+
 		foreach ( $items as $item ) {
 			$totals = array();
 			if ( null !== $item['subtotal'] ) {
@@ -286,7 +305,30 @@ class WCSMS_Importer {
 				$totals['total'] = $item['total'];
 			}
 
-			$subscription->add_product( $item['product'], $item['quantity'], array( 'totals' => $totals ) );
+			$item_id = $subscription->add_product( $item['product'], $item['quantity'], array( 'totals' => $totals ) );
+
+			if ( ! empty( $item['taxes'] ) && ! empty( $rate_ids ) ) {
+				$tax_data = array(
+					'total'    => array(),
+					'subtotal' => array(),
+				);
+				foreach ( $item['taxes'] as $rate_code => $amounts ) {
+					if ( ! isset( $rate_ids[ $rate_code ] ) ) {
+						continue;
+					}
+					foreach ( $amounts as $tax_key => $amount ) {
+						$tax_data[ $tax_key ][ $rate_ids[ $rate_code ] ] = $amount;
+					}
+				}
+
+				if ( ! empty( $tax_data['total'] ) || ! empty( $tax_data['subtotal'] ) ) {
+					$order_item = $subscription->get_item( $item_id );
+					if ( $order_item ) {
+						$order_item->set_taxes( $tax_data );
+						$order_item->save();
+					}
+				}
+			}
 		}
 
 		foreach ( $record['totals'] as $key => $value ) {
@@ -334,6 +376,60 @@ class WCSMS_Importer {
 		$subscription->save();
 
 		return $subscription;
+	}
+
+	/**
+	 * Resolve the record's tax rate codes against this site's tax tables.
+	 *
+	 * Rate ids are site-specific, so records carry codes. A code with no
+	 * matching rate on this site is a reported warning and its amounts are
+	 * dropped; inventing a fake rate id would corrupt tax reports silently,
+	 * which is worse.
+	 *
+	 * @param array $record Normalized record.
+	 * @param array $result Row result, warnings appended by reference.
+	 * @return array<string, int> rate code => rate id on this site.
+	 */
+	private function resolve_tax_rates( $record, &$result ) {
+		static $site_codes = null;
+
+		$wanted = array();
+		foreach ( $record['tax_lines'] as $line ) {
+			$wanted[ $line['rate_code'] ] = true;
+		}
+		foreach ( $record['items'] as $item ) {
+			foreach ( array_keys( $item['taxes'] ) as $rate_code ) {
+				$wanted[ $rate_code ] = true;
+			}
+		}
+
+		if ( empty( $wanted ) ) {
+			return array();
+		}
+
+		if ( null === $site_codes ) {
+			global $wpdb;
+
+			$site_codes = array();
+			// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- One bounded read of the rate table per request, cached in the static.
+			$rate_rows = $wpdb->get_col( "SELECT tax_rate_id FROM {$wpdb->prefix}woocommerce_tax_rates" );
+			foreach ( $rate_rows as $rate_id ) {
+				$site_codes[ WC_Tax::get_rate_code( (int) $rate_id ) ] = (int) $rate_id;
+			}
+		}
+
+		$resolved = array();
+
+		foreach ( array_keys( $wanted ) as $rate_code ) {
+			if ( isset( $site_codes[ $rate_code ] ) ) {
+				$resolved[ $rate_code ] = $site_codes[ $rate_code ];
+			} else {
+				/* translators: %s: tax rate code from the record. */
+				$result['warnings'][] = sprintf( __( 'Tax rate "%s" does not exist on this site; its amounts were dropped.', 'subscriptions-migration-suite-for-woocommerce' ), $rate_code );
+			}
+		}
+
+		return $resolved;
 	}
 
 	/**
