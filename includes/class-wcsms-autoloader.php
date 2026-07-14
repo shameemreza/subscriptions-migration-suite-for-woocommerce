@@ -31,6 +31,7 @@ class WCSMS_Autoloader {
 		'WCSMS_Record'             => 'import/class-wcsms-record.php',
 		'WCSMS_Importer'           => 'import/class-wcsms-importer.php',
 		'WCSMS_Run'                => 'import/class-wcsms-run.php',
+		'WCSMS_Exporter'           => 'export/class-wcsms-exporter.php',
 		'WCSMS_Batch_Runner'       => 'import/class-wcsms-batch-runner.php',
 		'WCSMS_CLI'                => 'cli/class-wcsms-cli.php',
 	);

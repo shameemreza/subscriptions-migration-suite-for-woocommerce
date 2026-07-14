@@ -20,6 +20,85 @@ class WCSMS_CLI {
 		WP_CLI::add_command( 'wcsms import', array( __CLASS__, 'import' ) );
 		WP_CLI::add_command( 'wcsms runs', array( __CLASS__, 'runs' ) );
 		WP_CLI::add_command( 'wcsms resume', array( __CLASS__, 'resume' ) );
+		WP_CLI::add_command( 'wcsms export', array( __CLASS__, 'export' ) );
+	}
+
+	/**
+	 * Export WooCommerce Subscriptions to a JSON Lines file.
+	 *
+	 * The output uses the same record format the importer reads, so the file
+	 * can be imported on another site as-is.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <file>
+	 * : Path to write. The file is overwritten.
+	 *
+	 * [--status=<statuses>]
+	 * : Comma-separated statuses without the wc- prefix (active,on-hold,...).
+	 * Default: all statuses.
+	 *
+	 * [--customer=<id>]
+	 * : Limit to one customer id.
+	 *
+	 * [--gateway=<id>]
+	 * : Limit to one payment method id.
+	 *
+	 * [--date-after=<date>]
+	 * : Only subscriptions created on or after this date (Y-m-d).
+	 *
+	 * [--date-before=<date>]
+	 * : Only subscriptions created on or before this date (Y-m-d).
+	 *
+	 * [--include-tokens]
+	 * : Include gateway payment meta (customer and token references) so
+	 * automatic renewals can continue on the target site. Off by default
+	 * because the values are sensitive.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wcsms export subscriptions.jsonl
+	 *     wp wcsms export active.jsonl --status=active,pending-cancel --include-tokens
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function export( $args, $assoc_args ) {
+		if ( ! WCSMS_Plugin::is_wcs_active() ) {
+			WP_CLI::error( 'WooCommerce Subscriptions must be active to export.' );
+		}
+
+		$file   = $args[0];
+		$handle = fopen( $file, 'w' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Streaming to a CLI-supplied file.
+
+		if ( false === $handle ) {
+			WP_CLI::error( sprintf( 'Cannot write to %s', $file ) );
+		}
+
+		$statuses = array();
+		if ( ! empty( $assoc_args['status'] ) ) {
+			$statuses = array_filter( array_map( 'trim', explode( ',', $assoc_args['status'] ) ) );
+		}
+
+		$exporter = new WCSMS_Exporter();
+		$stats    = $exporter->export(
+			$handle,
+			array(
+				'statuses'       => $statuses,
+				'customer_id'    => isset( $assoc_args['customer'] ) ? (int) $assoc_args['customer'] : 0,
+				'gateway'        => isset( $assoc_args['gateway'] ) ? $assoc_args['gateway'] : '',
+				'date_after'     => isset( $assoc_args['date-after'] ) ? $assoc_args['date-after'] : '',
+				'date_before'    => isset( $assoc_args['date-before'] ) ? $assoc_args['date-before'] : '',
+				'include_tokens' => isset( $assoc_args['include-tokens'] ),
+			),
+			static function ( $total ) {
+				WP_CLI::log( sprintf( '%d exported...', $total ) );
+			}
+		);
+
+		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Matching fopen above.
+
+		WP_CLI::success( sprintf( 'Exported %d subscriptions to %s.', $stats['exported'], $file ) );
 	}
 
 	/**
