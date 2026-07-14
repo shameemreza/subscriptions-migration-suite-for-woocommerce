@@ -1,0 +1,50 @@
+<?php
+/**
+ * Class-map autoloader.
+ *
+ * A static class map is the fastest option: no directory scanning and no
+ * string transformation on every lookup. New classes must be added here.
+ *
+ * @package WCSMS
+ */
+
+defined( 'ABSPATH' ) || exit;
+
+/**
+ * Autoloader for WCSMS classes.
+ */
+class WCSMS_Autoloader {
+
+	/**
+	 * Class map: class name => path relative to the includes directory.
+	 *
+	 * @var array<string, string>
+	 */
+	private static $class_map = array(
+		'WCSMS_Plugin'             => 'class-wcsms-plugin.php',
+		'WCSMS_Logger'             => 'class-wcsms-logger.php',
+		'WCSMS_Admin'              => 'admin/class-wcsms-admin.php',
+		'WCSMS_Settings'           => 'admin/class-wcsms-settings.php',
+		'WCSMS_Scanner'            => 'scan/class-wcsms-scanner.php',
+		'WCSMS_Source_Definitions' => 'scan/class-wcsms-source-definitions.php',
+		'WCSMS_CLI'                => 'cli/class-wcsms-cli.php',
+	);
+
+	/**
+	 * Register the autoloader.
+	 */
+	public static function register() {
+		spl_autoload_register( array( __CLASS__, 'autoload' ) );
+	}
+
+	/**
+	 * Load a mapped class.
+	 *
+	 * @param string $class_name Requested class name.
+	 */
+	public static function autoload( $class_name ) {
+		if ( isset( self::$class_map[ $class_name ] ) ) {
+			require WCSMS_PLUGIN_DIR . 'includes/' . self::$class_map[ $class_name ];
+		}
+	}
+}
