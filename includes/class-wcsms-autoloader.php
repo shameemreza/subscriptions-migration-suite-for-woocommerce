@@ -28,6 +28,8 @@ class WCSMS_Autoloader {
 		'WCSMS_Scanner'            => 'scan/class-wcsms-scanner.php',
 		'WCSMS_Continuity'         => 'scan/class-wcsms-continuity.php',
 		'WCSMS_Source_Definitions' => 'scan/class-wcsms-source-definitions.php',
+		'WCSMS_Record'             => 'import/class-wcsms-record.php',
+		'WCSMS_Importer'           => 'import/class-wcsms-importer.php',
 		'WCSMS_CLI'                => 'cli/class-wcsms-cli.php',
 	);
 
