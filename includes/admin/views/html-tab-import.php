@@ -35,7 +35,7 @@ defined( 'ABSPATH' ) || exit;
 							<input type="checkbox" name="wcsms_live" id="wcsms_live" value="1" />
 							<?php esc_html_e( 'Live import (writes subscriptions)', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 						</label>
-						<?php echo wc_help_tip( __( 'Leave unchecked to dry run first: every record is validated and resolved, nothing is written, and problems show per line on the runs tab.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+						<p class="description"><?php esc_html_e( 'Leave unchecked to dry run first: every record is validated and resolved, nothing is written, and problems show per line on the runs tab.', 'subscriptions-migration-suite-for-woocommerce' ); ?></p>
 					</fieldset>
 				</td>
 			</tr>

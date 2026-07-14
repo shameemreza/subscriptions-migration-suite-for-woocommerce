@@ -83,7 +83,7 @@ $wcsms_gateways = WC()->payment_gateways()->get_available_payment_gateways();
 						<input type="checkbox" name="wcsms_include_tokens" id="wcsms_include_tokens" value="1" />
 						<?php esc_html_e( 'Include payment meta in the export', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 					</label>
-					<?php echo wc_help_tip( __( 'Includes each gateway\'s recurring payment references (customer and token ids) so automatic renewals can continue on the target site. Only enable this when the file will be handled securely: the values are sensitive.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+					<p class="description"><?php esc_html_e( 'Includes each gateway\'s recurring payment references (customer and token ids) so automatic renewals can continue on the target site. Only enable this when the file will be handled securely: the values are sensitive.', 'subscriptions-migration-suite-for-woocommerce' ); ?></p>
 				</fieldset>
 			</td>
 		</tr>
