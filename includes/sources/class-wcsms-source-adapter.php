@@ -89,6 +89,7 @@ class WCSMS_Sources {
 		return array(
 			'flexible_subscriptions' => 'WCSMS_Source_Flexible_Subscriptions',
 			'wpswings'               => 'WCSMS_Source_WPSwings',
+			'yith'                   => 'WCSMS_Source_YITH',
 		);
 	}
 
