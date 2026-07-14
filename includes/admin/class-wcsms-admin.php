@@ -254,17 +254,15 @@ class WCSMS_Admin {
 			self::redirect_with_notice( 'scan', 'error', $run->get_error_message() );
 		}
 
-		self::redirect_with_notice(
-			'runs',
-			'success',
-			sprintf(
-				/* translators: %d: number of subscriptions found in the source. */
-				$dry_run
-					? __( 'Dry run queued for %d subscriptions. Nothing will be written; review the results below, then run it live.', 'subscriptions-migration-suite-for-woocommerce' )
-					: __( 'Migration queued for %d subscriptions. Batches process in the background; refresh to follow progress.', 'subscriptions-migration-suite-for-woocommerce' ),
-				$run['total']
-			)
-		);
+		if ( $dry_run ) {
+			/* translators: %d: number of subscriptions found in the source. */
+			$message = sprintf( __( 'Dry run queued for %d subscriptions. Nothing will be written; review the results below, then run it live.', 'subscriptions-migration-suite-for-woocommerce' ), $run['total'] );
+		} else {
+			/* translators: %d: number of subscriptions found in the source. */
+			$message = sprintf( __( 'Migration queued for %d subscriptions. Batches process in the background; refresh to follow progress.', 'subscriptions-migration-suite-for-woocommerce' ), $run['total'] );
+		}
+
+		self::redirect_with_notice( 'runs', 'success', $message );
 	}
 
 	/**

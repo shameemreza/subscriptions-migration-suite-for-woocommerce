@@ -203,8 +203,8 @@ class WCSMS_Importer {
 			$product = $product_id ? wc_get_product( $product_id ) : false;
 
 			if ( ! $product ) {
-				/* translators: 1: item position, 2: product id or SKU from the record. */
 				$result['errors'][] = sprintf(
+					/* translators: 1: item position, 2: product id or SKU from the record. */
 					__( 'Item %1$d: product "%2$s" was not found on this site.', 'subscriptions-migration-suite-for-woocommerce' ),
 					$index + 1,
 					$item['product_id'] ? $item['product_id'] : $item['sku']
