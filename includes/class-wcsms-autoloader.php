@@ -43,6 +43,7 @@ class WCSMS_Autoloader {
 		'WCSMS_Product_Converter'  => 'import/class-wcsms-product-converter.php',
 		'WCSMS_Cutover'            => 'import/class-wcsms-cutover.php',
 		'WCSMS_Rollback'           => 'import/class-wcsms-rollback.php',
+		'WCSMS_Verifier'           => 'import/class-wcsms-verifier.php',
 		'WCSMS_CLI'                => 'cli/class-wcsms-cli.php',
 	);
 

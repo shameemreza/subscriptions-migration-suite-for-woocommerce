@@ -25,6 +25,66 @@ class WCSMS_CLI {
 		WP_CLI::add_command( 'wcsms convert-products', array( __CLASS__, 'convert_products' ) );
 		WP_CLI::add_command( 'wcsms cutover', array( __CLASS__, 'cutover' ) );
 		WP_CLI::add_command( 'wcsms rollback', array( __CLASS__, 'rollback' ) );
+		WP_CLI::add_command( 'wcsms verify', array( __CLASS__, 'verify' ) );
+	}
+
+	/**
+	 * Verify a migrated source: reconcile counts and check that every
+	 * migrated subscription can actually bill.
+	 *
+	 * Checks that active subscriptions have future next payment dates and,
+	 * once released, scheduled renewal actions; that pending cancellations
+	 * carry their end dates and prepaid term actions; that automatic
+	 * renewals point at gateways active on this site; and that held
+	 * subscriptions are counted so a forgotten cutover is visible.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <source>
+	 * : The source id, as listed by wp wcsms migrate.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wcsms verify wpswings
+	 *
+	 * @param array $args Positional arguments.
+	 */
+	public static function verify( $args ) {
+		if ( ! WCSMS_Plugin::is_wcs_active() ) {
+			WP_CLI::error( 'WooCommerce Subscriptions must be active to verify.' );
+		}
+
+		$adapter = WCSMS_Sources::get( $args[0] );
+
+		if ( null === $adapter ) {
+			WP_CLI::error( sprintf( 'Unknown source "%s". Available: %s', $args[0], implode( ', ', array_keys( WCSMS_Sources::adapters() ) ) ) );
+		}
+
+		$report = WCSMS_Verifier::verify( $adapter );
+
+		WP_CLI::log( sprintf( 'Source records remaining: %d', $report['source_total'] ) );
+		WP_CLI::log( sprintf( 'Migrated subscriptions: %d', $report['migrated'] ) );
+
+		$statuses = array();
+		foreach ( $report['statuses'] as $status => $count ) {
+			$statuses[] = $status . ': ' . $count;
+		}
+		WP_CLI::log( 'By status: ' . ( $statuses ? implode( ', ', $statuses ) : 'none' ) );
+
+		if ( $report['held'] > 0 ) {
+			WP_CLI::warning( sprintf( '%d subscriptions are still held from renewals. Complete the cutover: wp wcsms cutover %s --live', $report['held'], $adapter->id() ) );
+		}
+
+		if ( empty( $report['issues'] ) ) {
+			WP_CLI::success( 'All checks passed.' );
+			return;
+		}
+
+		foreach ( $report['issues'] as $issue ) {
+			WP_CLI::warning( sprintf( '#%d: %s', $issue['subscription_id'], $issue['issue'] ) );
+		}
+
+		WP_CLI::error( sprintf( '%d issues found.', count( $report['issues'] ) ) );
 	}
 
 	/**
