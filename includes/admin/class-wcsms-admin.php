@@ -35,23 +35,22 @@ class WCSMS_Admin {
 		add_action( 'admin_post_' . self::RESUME_ACTION, array( __CLASS__, 'handle_resume' ) );
 		add_action( 'admin_post_' . self::EXPORT_ACTION, array( __CLASS__, 'handle_export' ) );
 		add_action( 'admin_post_' . self::MIGRATE_ACTION, array( __CLASS__, 'handle_migrate' ) );
-		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
+		add_filter( 'woocommerce_screen_ids', array( __CLASS__, 'register_screen' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
 	}
 
 	/**
-	 * Enqueue WooCommerce admin assets on our page, for the enhanced
-	 * customer search select on the export tab.
+	 * Register the page as a WooCommerce screen so WooCommerce enqueues its
+	 * admin assets here: help tip tooltips (tipTip), enhanced selects, and
+	 * admin styles. Without this, wc_help_tip() renders the icon but hover
+	 * does nothing because the tooltip script never loads.
 	 *
-	 * @param string $hook_suffix Current admin page hook.
+	 * @param string[] $screen_ids WooCommerce screen ids.
+	 * @return string[]
 	 */
-	public static function enqueue( $hook_suffix ) {
-		if ( 'woocommerce_page_' . self::PAGE_SLUG !== $hook_suffix ) {
-			return;
-		}
-
-		wp_enqueue_script( 'wc-enhanced-select' );
-		wp_enqueue_style( 'woocommerce_admin_styles' );
+	public static function register_screen( $screen_ids ) {
+		$screen_ids[] = 'woocommerce_page_' . self::PAGE_SLUG;
+		return $screen_ids;
 	}
 
 	/**
