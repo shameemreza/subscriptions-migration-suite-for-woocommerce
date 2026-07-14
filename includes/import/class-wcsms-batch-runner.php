@@ -35,9 +35,12 @@ class WCSMS_Batch_Runner {
 	 * @param string $file    Absolute path to the JSONL file. Must remain in
 	 *                        place until the run completes.
 	 * @param bool   $dry_run Validate without writing.
+	 * @param array  $extra   Extra run fields, for example own_file => true
+	 *                        when the file was uploaded into the plugin's own
+	 *                        directory and should be deleted on completion.
 	 * @return array|WP_Error The created run, or an error.
 	 */
-	public static function start_jsonl( $file, $dry_run ) {
+	public static function start_jsonl( $file, $dry_run, $extra = array() ) {
 		$path = realpath( $file );
 
 		if ( false === $path || ! is_readable( $path ) ) {
@@ -46,9 +49,12 @@ class WCSMS_Batch_Runner {
 
 		$run = WCSMS_Run::create(
 			'jsonl_import',
-			array(
-				'file'    => $path,
-				'dry_run' => (bool) $dry_run,
+			array_merge(
+				$extra,
+				array(
+					'file'    => $path,
+					'dry_run' => (bool) $dry_run,
+				)
 			)
 		);
 
@@ -172,6 +178,10 @@ class WCSMS_Batch_Runner {
 		if ( $done ) {
 			$run['status'] = 'completed';
 			WCSMS_Run::save( $run );
+
+			if ( ! empty( $run['own_file'] ) ) {
+				wp_delete_file( $run['file'] );
+			}
 			WCSMS_Logger::log(
 				sprintf(
 					'Run %s completed. created: %d, skipped: %d, validated: %d, failed: %d.',
