@@ -21,7 +21,23 @@ Subscriptions Migration Suite for WooCommerce helps you move subscription data s
 * Double-billing protection: migrated subscriptions are held from renewals until you confirm cutover.
 * Export and import WooCommerce Subscriptions data between environments, including schedules, payment meta, and taxes.
 * Roll back everything a migration or import created, without touching source data.
-* WP-CLI commands for every step: scan, migrate, import, export, convert-products, cutover, rollback, runs, resume.
+* Verify a finished migration: counts, schedules, renewal actions, and gateway health.
+* WP-CLI commands for every step.
+
+= WP-CLI commands =
+
+Every step works from the command line. Migration and import commands run as a dry run by default; pass --live to write.
+
+* `wp wcsms scan` - find migratable subscription data and its payment continuity outlook.
+* `wp wcsms migrate <source>` - migrate a source into WooCommerce Subscriptions, with --background for large stores.
+* `wp wcsms convert-products <source>` - convert source subscription products, including variable products.
+* `wp wcsms cutover <source>` - remove the source plugin's renewal jobs and release held subscriptions.
+* `wp wcsms verify <source>` - reconcile a finished migration and check that every subscription can bill.
+* `wp wcsms rollback --source=<source>` - remove everything a migration created; also accepts --run=<run_id>.
+* `wp wcsms import <file>` - import a JSON Lines file, with --background for large files.
+* `wp wcsms export <file>` - export subscriptions, with filters and opt-in payment meta.
+* `wp wcsms runs` - list background runs with progress and tallies.
+* `wp wcsms resume <run_id>` - resume an interrupted background run from its checkpoint.
 
 Supported migration sources:
 
@@ -55,4 +71,5 @@ No. Source data is only read, never changed. Rollback removes only what a migrat
 * Migration adapters for all five sources, with background processing, resume, and idempotent re-runs.
 * Streaming JSON Lines export and import with round-trip fidelity, including tax rate mapping.
 * Product conversion, double-billing cutover guard, and rollback.
+* Verify, rollback, and renewal order history linking.
 * Admin screen under WooCommerce plus WP-CLI commands for every step.
