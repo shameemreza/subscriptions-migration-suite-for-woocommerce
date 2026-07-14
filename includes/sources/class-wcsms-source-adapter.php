@@ -65,6 +65,7 @@ class WCSMS_Sources {
 	public static function adapters() {
 		return array(
 			'flexible_subscriptions' => 'WCSMS_Source_Flexible_Subscriptions',
+			'wpswings'               => 'WCSMS_Source_WPSwings',
 		);
 	}
 

@@ -35,6 +35,7 @@ class WCSMS_Autoloader {
 		'WCSMS_Source_Adapter'     => 'sources/class-wcsms-source-adapter.php',
 		'WCSMS_Sources'            => 'sources/class-wcsms-source-adapter.php',
 		'WCSMS_Source_Flexible_Subscriptions' => 'sources/class-wcsms-source-flexible-subscriptions.php',
+		'WCSMS_Source_WPSwings'    => 'sources/class-wcsms-source-wpswings.php',
 		'WCSMS_Batch_Runner'       => 'import/class-wcsms-batch-runner.php',
 		'WCSMS_CLI'                => 'cli/class-wcsms-cli.php',
 	);
