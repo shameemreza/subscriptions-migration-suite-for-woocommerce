@@ -18,6 +18,80 @@ class WCSMS_CLI {
 	public static function register() {
 		WP_CLI::add_command( 'wcsms scan', array( __CLASS__, 'scan' ) );
 		WP_CLI::add_command( 'wcsms import', array( __CLASS__, 'import' ) );
+		WP_CLI::add_command( 'wcsms runs', array( __CLASS__, 'runs' ) );
+		WP_CLI::add_command( 'wcsms resume', array( __CLASS__, 'resume' ) );
+	}
+
+	/**
+	 * List background import runs.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--format=<format>]
+	 * : Output format.
+	 * ---
+	 * default: table
+	 * options:
+	 *   - table
+	 *   - json
+	 *   - csv
+	 *   - yaml
+	 * ---
+	 *
+	 * @param array $args       Positional arguments (unused).
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function runs( $args, $assoc_args ) {
+		$rows = array();
+
+		foreach ( WCSMS_Run::ids() as $id ) {
+			$run = WCSMS_Run::get( $id );
+			if ( null === $run ) {
+				continue;
+			}
+
+			$rows[] = array(
+				'id'      => $run['id'],
+				'type'    => $run['type'],
+				'status'  => $run['status'],
+				'line'    => $run['line'],
+				'created' => $run['tallies']['created'],
+				'skipped' => $run['tallies']['skipped'],
+				'failed'  => $run['tallies']['failed'],
+				'updated' => $run['updated_at'],
+			);
+		}
+
+		if ( empty( $rows ) ) {
+			WP_CLI::log( 'No runs yet.' );
+			return;
+		}
+
+		$format = isset( $assoc_args['format'] ) ? $assoc_args['format'] : 'table';
+		WP_CLI\Utils\format_items( $format, $rows, array( 'id', 'type', 'status', 'line', 'created', 'skipped', 'failed', 'updated' ) );
+	}
+
+	/**
+	 * Resume an interrupted background run from its last checkpoint.
+	 *
+	 * Safe to run after a crash or timeout: rows the previous attempt already
+	 * imported are matched by their source stamps and skipped.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <run_id>
+	 * : The run id shown by wp wcsms runs.
+	 *
+	 * @param array $args Positional arguments.
+	 */
+	public static function resume( $args ) {
+		$result = WCSMS_Batch_Runner::resume( $args[0] );
+
+		if ( is_wp_error( $result ) ) {
+			WP_CLI::error( $result->get_error_message() );
+		}
+
+		WP_CLI::success( sprintf( 'Run %s re-queued from line %d. Batches run on Action Scheduler.', $result['id'], $result['line'] ) );
 	}
 
 	/**
@@ -37,12 +111,18 @@ class WCSMS_CLI {
 	 * resolves every record but creates nothing.
 	 *
 	 * [--limit=<n>]
-	 * : Stop after this many records.
+	 * : Stop after this many records. Foreground runs only.
+	 *
+	 * [--background]
+	 * : Queue the import on Action Scheduler instead of processing it now.
+	 * The file must stay in place until the run completes. Track progress
+	 * with wp wcsms runs.
 	 *
 	 * ## EXAMPLES
 	 *
 	 *     wp wcsms import subscriptions.jsonl
 	 *     wp wcsms import subscriptions.jsonl --live
+	 *     wp wcsms import subscriptions.jsonl --live --background
 	 *
 	 * @param array $args       Positional arguments.
 	 * @param array $assoc_args Named arguments.
@@ -63,6 +143,17 @@ class WCSMS_CLI {
 
 		if ( $dry_run ) {
 			WP_CLI::log( 'Dry run: nothing will be written. Pass --live to import.' );
+		}
+
+		if ( isset( $assoc_args['background'] ) ) {
+			$run = WCSMS_Batch_Runner::start_jsonl( $file, $dry_run );
+
+			if ( is_wp_error( $run ) ) {
+				WP_CLI::error( $run->get_error_message() );
+			}
+
+			WP_CLI::success( sprintf( 'Run %s queued on Action Scheduler. Track it with: wp wcsms runs', $run['id'] ) );
+			return;
 		}
 
 		$importer = new WCSMS_Importer();

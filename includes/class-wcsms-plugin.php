@@ -36,6 +36,10 @@ final class WCSMS_Plugin {
 	 * the frontend footprint at zero.
 	 */
 	private function __construct() {
+		// Registered on every request type: Action Scheduler runs queued
+		// batches outside wp-admin.
+		WCSMS_Batch_Runner::init();
+
 		if ( is_admin() ) {
 			WCSMS_Admin::init();
 			WCSMS_Settings::init();
