@@ -50,7 +50,17 @@ foreach ( WCSMS_Run::ids() as $wcsms_run_id ) {
 							: esc_html__( 'Dry run', 'subscriptions-migration-suite-for-woocommerce' );
 						?>
 					</td>
-					<td><?php echo esc_html( $wcsms_run['status'] ); ?></td>
+					<td>
+						<?php
+						$wcsms_status_labels = array(
+							'queued'    => __( 'Queued', 'subscriptions-migration-suite-for-woocommerce' ),
+							'running'   => __( 'Running', 'subscriptions-migration-suite-for-woocommerce' ),
+							'completed' => __( 'Completed', 'subscriptions-migration-suite-for-woocommerce' ),
+							'failed'    => __( 'Failed', 'subscriptions-migration-suite-for-woocommerce' ),
+						);
+						echo esc_html( isset( $wcsms_status_labels[ $wcsms_run['status'] ] ) ? $wcsms_status_labels[ $wcsms_run['status'] ] : $wcsms_run['status'] );
+						?>
+					</td>
 					<td><?php echo esc_html( number_format_i18n( $wcsms_run['line'] ) ); ?></td>
 					<td><?php echo esc_html( number_format_i18n( empty( $wcsms_run['dry_run'] ) ? $wcsms_run['tallies']['created'] : $wcsms_run['tallies']['dry_run'] ) ); ?></td>
 					<td><?php echo esc_html( number_format_i18n( $wcsms_run['tallies']['skipped'] ) ); ?></td>

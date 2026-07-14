@@ -61,13 +61,22 @@ defined( 'ABSPATH' ) || exit;
 								: esc_html__( 'Inactive', 'subscriptions-migration-suite-for-woocommerce' );
 							?>
 						</td>
-						<td><?php echo esc_html( $source['store'] ); ?></td>
+						<td>
+							<?php
+							$wcsms_store_labels = array(
+								'hpos'  => __( 'HPOS order tables', 'subscriptions-migration-suite-for-woocommerce' ),
+								'posts' => __( 'Posts table', 'subscriptions-migration-suite-for-woocommerce' ),
+								'table' => __( 'Custom tables', 'subscriptions-migration-suite-for-woocommerce' ),
+							);
+							echo esc_html( isset( $wcsms_store_labels[ $source['store'] ] ) ? $wcsms_store_labels[ $source['store'] ] : $source['store'] );
+							?>
+						</td>
 						<td><?php echo esc_html( number_format_i18n( $source['total'] ) ); ?></td>
 						<td>
 							<?php
 							$parts = array();
 							foreach ( $source['statuses'] as $status => $count ) {
-								$parts[] = sprintf( '%s: %s', $status, number_format_i18n( $count ) );
+								$parts[] = sprintf( '%s: %s', str_replace( 'wc-', '', $status ), number_format_i18n( $count ) );
 							}
 							echo esc_html( implode( ', ', $parts ) );
 							?>
