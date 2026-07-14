@@ -320,7 +320,9 @@ class WCSMS_Admin {
 		}
 
 		$type    = 'error' === $_GET['wcsms_notice'] ? 'error' : 'success';
-		$message = isset( $_GET['wcsms_message'] ) ? sanitize_text_field( rawurldecode( wp_unslash( $_GET['wcsms_message'] ) ) ) : '';
+		// Decode before sanitizing on purpose: sanitizing first and decoding
+		// after could reintroduce markup the sanitizer already removed.
+		$message = isset( $_GET['wcsms_message'] ) ? sanitize_text_field( rawurldecode( wp_unslash( $_GET['wcsms_message'] ) ) ) : ''; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- Sanitized by sanitize_text_field after decoding, escaped again on output.
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
 		if ( '' === $message ) {

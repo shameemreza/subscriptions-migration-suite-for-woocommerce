@@ -245,20 +245,16 @@ class WCSMS_Scanner {
 	private function gateway_rows_sublium( $definition ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . $definition['table'];
+		$table = esc_sql( $wpdb->prefix . $definition['table'] );
 
 		if ( ! $this->table_exists( $table ) ) {
 			return array();
 		}
 
-		// Table name comes from the static definitions, never from user input.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only scan of a foreign schema; identifiers are static.
-		$rows = $wpdb->get_results(
-			"SELECT COALESCE(gateway, '') AS gateway, '' AS flag, COALESCE(gateway_mode, 1) AS mode, COUNT(*) AS total
-			 FROM `{$table}`
-			 GROUP BY gateway, gateway_mode",
-			ARRAY_A
-		);
+		// Table name comes from the static definitions, escaped with esc_sql;
+		// identifiers cannot be parameterized.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Read-only scan of a foreign schema; identifiers are static and escaped.
+		$rows = $wpdb->get_results( "SELECT COALESCE(gateway, '') AS gateway, '' AS flag, COALESCE(gateway_mode, 1) AS mode, COUNT(*) AS total FROM `{$table}` GROUP BY gateway, gateway_mode", ARRAY_A );
 
 		return (array) $rows;
 	}
@@ -404,16 +400,17 @@ class WCSMS_Scanner {
 	private function count_table( $definition ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . $definition['table'];
+		$table = esc_sql( $wpdb->prefix . $definition['table'] );
 
 		if ( ! $this->table_exists( $table ) ) {
 			return null;
 		}
 
-		$column = $definition['status_column'];
+		$column = esc_sql( $definition['status_column'] );
 
-		// Table and column names come from the static definitions above, never from user input.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only scan of a foreign schema; identifiers are static.
+		// Table and column names come from the static definitions above and
+		// are escaped with esc_sql; identifiers cannot be parameterized.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Read-only scan of a foreign schema; identifiers are static and escaped.
 		$rows = $wpdb->get_results( "SELECT `{$column}` AS status, COUNT(*) AS total FROM `{$table}` GROUP BY `{$column}`", ARRAY_A );
 
 		if ( ! empty( $definition['status_map'] ) && is_array( $rows ) ) {

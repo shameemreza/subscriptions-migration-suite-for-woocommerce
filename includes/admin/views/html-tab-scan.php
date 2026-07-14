@@ -34,17 +34,17 @@ defined( 'ABSPATH' ) || exit;
 					<th><?php esc_html_e( 'Source plugin', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
 					<th>
 						<?php esc_html_e( 'Plugin status', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-						<?php echo wc_help_tip( __( 'Source data can be migrated whether or not the source plugin is active. Inactive is safer: it prevents the source plugin from creating renewals during migration.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+						<?php echo wp_kses_post( wc_help_tip( __( 'Source data can be migrated whether or not the source plugin is active. Inactive is safer: it prevents the source plugin from creating renewals during migration.', 'subscriptions-migration-suite-for-woocommerce' ) ) ); ?>
 					</th>
 					<th>
 						<?php esc_html_e( 'Storage', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-						<?php echo wc_help_tip( __( 'Where the source keeps its records: HPOS order tables, the posts table, or its own custom tables.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+						<?php echo wp_kses_post( wc_help_tip( __( 'Where the source keeps its records: HPOS order tables, the posts table, or its own custom tables.', 'subscriptions-migration-suite-for-woocommerce' ) ) ); ?>
 					</th>
 					<th><?php esc_html_e( 'Subscriptions', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
 					<th><?php esc_html_e( 'By status', 'subscriptions-migration-suite-for-woocommerce' ); ?></th>
 					<th>
 						<?php esc_html_e( 'Payment continuity', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-						<?php echo wc_help_tip( __( 'Whether automatic renewals survive migration. Carries over: renews without customer action. Conditional: renews if the same gateway stays active. Re-authorization needed: customer must add a payment method. Blocked: billing is hosted at the gateway and must be resolved there first. Manual renewal: no automatic payments in the source either.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+						<?php echo wp_kses_post( wc_help_tip( __( 'Whether automatic renewals survive migration. Carries over: renews without customer action. Conditional: renews if the same gateway stays active. Re-authorization needed: customer must add a payment method. Blocked: billing is hosted at the gateway and must be resolved there first. Manual renewal: no automatic payments in the source either.', 'subscriptions-migration-suite-for-woocommerce' ) ) ); ?>
 					</th>
 					<th></th>
 				</tr>
@@ -101,7 +101,7 @@ defined( 'ABSPATH' ) || exit;
 										<input type="checkbox" name="wcsms_live" value="1" />
 										<?php esc_html_e( 'Live', 'subscriptions-migration-suite-for-woocommerce' ); ?>
 									</label>
-									<?php echo wc_help_tip( __( 'Leave unchecked to queue a dry run first: records are validated and resolved, nothing is written.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+									<?php echo wp_kses_post( wc_help_tip( __( 'Leave unchecked to queue a dry run first: records are validated and resolved, nothing is written.', 'subscriptions-migration-suite-for-woocommerce' ) ) ); ?>
 									<button type="submit" class="button button-primary"><?php esc_html_e( 'Queue migration', 'subscriptions-migration-suite-for-woocommerce' ); ?></button>
 								</form>
 							<?php else : ?>

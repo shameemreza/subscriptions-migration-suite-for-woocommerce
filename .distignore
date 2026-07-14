@@ -1,0 +1,11 @@
+# Development files excluded from the distributed plugin build.
+.distignore
+.git
+.gitignore
+.phpstan
+.playwright-mcp
+composer.json
+composer.lock
+node_modules
+phpstan.neon.dist
+vendor

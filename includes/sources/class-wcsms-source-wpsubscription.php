@@ -289,15 +289,16 @@ class WCSMS_Source_WPSubscription extends WCSMS_Source_Adapter {
 	private function renewal_order_ids( $id, $parent_id ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'subscrpt_order_relation';
+		$table = esc_sql( $wpdb->prefix . 'subscrpt_order_relation' );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema lookup.
 		if ( ! $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
 			return array();
 		}
 
-		// Table name is built from the prefix and a literal, never user input.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only migration source scan; identifier is static.
+		// Table name is the prefix plus a literal, escaped with esc_sql;
+		// identifiers cannot be parameterized.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Read-only migration source scan; identifier is static and escaped.
 		$ids = $wpdb->get_col( $wpdb->prepare( "SELECT order_id FROM `{$table}` WHERE subscription_id = %d AND type IN ( 'renew', 'early-renew' ) ORDER BY id ASC", $id ) );
 
 		$renewals = array();
@@ -320,15 +321,16 @@ class WCSMS_Source_WPSubscription extends WCSMS_Source_Adapter {
 	private function parent_from_relation_table( $id ) {
 		global $wpdb;
 
-		$table = $wpdb->prefix . 'subscrpt_order_relation';
+		$table = esc_sql( $wpdb->prefix . 'subscrpt_order_relation' );
 
 		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching -- Schema lookup.
 		if ( ! $wpdb->get_var( $wpdb->prepare( 'SHOW TABLES LIKE %s', $table ) ) ) {
 			return 0;
 		}
 
-		// Table name is built from the prefix and a literal, never user input.
-		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Read-only migration source scan; identifier is static.
+		// Table name is the prefix plus a literal, escaped with esc_sql;
+		// identifiers cannot be parameterized.
+		// phpcs:ignore WordPress.DB.DirectDatabaseQuery.DirectQuery, WordPress.DB.DirectDatabaseQuery.NoCaching, WordPress.DB.PreparedSQL.InterpolatedNotPrepared, PluginCheck.Security.DirectDB.UnescapedDBParameter -- Read-only migration source scan; identifier is static and escaped.
 		return (int) $wpdb->get_var( $wpdb->prepare( "SELECT order_id FROM `{$table}` WHERE subscription_id = %d AND type = 'new' ORDER BY id ASC LIMIT 1", $id ) );
 	}
 
