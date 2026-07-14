@@ -284,6 +284,10 @@ class WCSMS_Batch_Runner {
 				array(
 					'dry_run' => ! empty( $run['dry_run'] ),
 					'run_id'  => $run['id'],
+					// Source migrations hold new subscriptions from WCS
+					// scheduling until cutover confirms the source engine
+					// is off, so nothing can double bill in between.
+					'hold'    => true,
 				)
 			);
 

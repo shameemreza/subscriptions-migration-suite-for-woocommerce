@@ -346,6 +346,19 @@ class WCSMS_Source_WPSwings extends WCSMS_Source_Adapter {
 	}
 
 	/**
+	 * WP Swings runs its renewal and expiry sweeps as recurring Action
+	 * Scheduler jobs.
+	 *
+	 * @return string[]
+	 */
+	public function scheduler_hooks() {
+		return array(
+			'wps_sfw_create_renewal_order_schedule',
+			'wps_sfw_expired_renewal_subscription',
+		);
+	}
+
+	/**
 	 * Product conversion maps. WP Swings marks products with the
 	 * _wps_sfw_product flag and stores billing terms in wps_sfw_* meta,
 	 * already using the WCS period vocabulary.

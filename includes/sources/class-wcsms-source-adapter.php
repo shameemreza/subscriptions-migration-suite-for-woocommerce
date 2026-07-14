@@ -62,6 +62,17 @@ abstract class WCSMS_Source_Adapter {
 	public function product_maps() {
 		return array();
 	}
+
+	/**
+	 * Action Scheduler hooks the source plugin uses for its own renewal
+	 * engine. Cutover unschedules them so only WooCommerce Subscriptions
+	 * bills after migration.
+	 *
+	 * @return string[]
+	 */
+	public function scheduler_hooks() {
+		return array();
+	}
 }
 
 /**

@@ -34,6 +34,8 @@ class WCSMS_Importer {
 	 *
 	 *     @type bool   $dry_run Validate and resolve without writing. Default true.
 	 *     @type string $run_id  Identifier stamped on created subscriptions.
+	 *     @type bool   $hold    Hold the subscription from WCS scheduling
+	 *                           until cutover. Default false.
 	 * }
 	 * @return array {
 	 *     Row result.
@@ -51,6 +53,7 @@ class WCSMS_Importer {
 			array(
 				'dry_run' => true,
 				'run_id'  => '',
+				'hold'    => false,
 			)
 		);
 
@@ -374,6 +377,10 @@ class WCSMS_Importer {
 		}
 
 		$subscription->save();
+
+		if ( ! empty( $options['hold'] ) ) {
+			WCSMS_Cutover::hold( $subscription );
+		}
 
 		return $subscription;
 	}

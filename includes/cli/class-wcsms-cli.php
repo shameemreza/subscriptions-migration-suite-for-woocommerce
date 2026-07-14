@@ -23,6 +23,7 @@ class WCSMS_CLI {
 		WP_CLI::add_command( 'wcsms export', array( __CLASS__, 'export' ) );
 		WP_CLI::add_command( 'wcsms migrate', array( __CLASS__, 'migrate' ) );
 		WP_CLI::add_command( 'wcsms convert-products', array( __CLASS__, 'convert_products' ) );
+		WP_CLI::add_command( 'wcsms cutover', array( __CLASS__, 'cutover' ) );
 	}
 
 	/**
@@ -187,6 +188,7 @@ class WCSMS_CLI {
 					array(
 						'dry_run' => $dry_run,
 						'run_id'  => $run_id,
+						'hold'    => true,
 					)
 				);
 
@@ -218,9 +220,74 @@ class WCSMS_CLI {
 			)
 		);
 
+		if ( $tally['created'] > 0 ) {
+			WP_CLI::log( sprintf( 'Migrated subscriptions are held from renewals until cutover. When ready: wp wcsms cutover %s --live', $source_id ) );
+		}
+
 		if ( $tally['failed'] > 0 ) {
 			WP_CLI::halt( 1 );
 		}
+	}
+
+	/**
+	 * Confirm cutover for a migrated source: remove the source plugin's
+	 * scheduled renewal jobs and release held subscriptions so WooCommerce
+	 * Subscriptions takes over billing.
+	 *
+	 * Dry run by default: reports pending source jobs and held
+	 * subscriptions without changing anything.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <source>
+	 * : The source id, as listed by wp wcsms migrate.
+	 *
+	 * [--live]
+	 * : Perform the cutover.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wcsms cutover flexible_subscriptions
+	 *     wp wcsms cutover flexible_subscriptions --live
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function cutover( $args, $assoc_args ) {
+		if ( ! WCSMS_Plugin::is_wcs_active() ) {
+			WP_CLI::error( 'WooCommerce Subscriptions must be active for cutover.' );
+		}
+
+		$adapter = WCSMS_Sources::get( $args[0] );
+
+		if ( null === $adapter ) {
+			WP_CLI::error( sprintf( 'Unknown source "%s". Available: %s', $args[0], implode( ', ', array_keys( WCSMS_Sources::adapters() ) ) ) );
+		}
+
+		$dry_run = ! isset( $assoc_args['live'] );
+		$report  = WCSMS_Cutover::run( $adapter, $dry_run );
+
+		if ( empty( $report['source_actions'] ) ) {
+			WP_CLI::log( 'Source plugin scheduled jobs: none pending.' );
+		} else {
+			foreach ( $report['source_actions'] as $hook => $count ) {
+				WP_CLI::log( sprintf( 'Source job %s: %d pending%s', $hook, $count, $dry_run ? '' : ' (removed)' ) );
+			}
+		}
+
+		if ( $dry_run ) {
+			WP_CLI::log( sprintf( 'Held subscriptions ready to release: %d.', $report['held'] ) );
+			WP_CLI::success( 'Dry run only. Pass --live to perform the cutover.' );
+			return;
+		}
+
+		WP_CLI::success(
+			sprintf(
+				'Cutover done. Released %d subscriptions, scheduled %d WooCommerce Subscriptions actions.',
+				$report['released'],
+				$report['scheduled']
+			)
+		);
 	}
 
 	/**

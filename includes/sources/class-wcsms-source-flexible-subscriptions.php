@@ -417,6 +417,20 @@ class WCSMS_Source_Flexible_Subscriptions extends WCSMS_Source_Adapter {
 	}
 
 	/**
+	 * Flexible Subscriptions schedules renewals, cancellations, and
+	 * expirations as its own Action Scheduler jobs.
+	 *
+	 * @return string[]
+	 */
+	public function scheduler_hooks() {
+		return array(
+			'fsub/subscription/payment_request/process',
+			'fsub/subscription/cancel',
+			'fsub/subscription/expire',
+		);
+	}
+
+	/**
 	 * Product conversion maps. Flexible Subscriptions products are the WCS
 	 * schema with an _fsb_ prefix; the period is a single letter (M) and
 	 * the recurring price lives in the native _price.
