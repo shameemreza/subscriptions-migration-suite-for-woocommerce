@@ -16,28 +16,30 @@ defined( 'ABSPATH' ) || exit;
 	<?php wp_nonce_field( WCSMS_Admin::UPLOAD_ACTION ); ?>
 	<input type="hidden" name="action" value="<?php echo esc_attr( WCSMS_Admin::UPLOAD_ACTION ); ?>" />
 
-	<table class="form-table" role="presentation">
-		<tr>
-			<th scope="row">
-				<label for="wcsms_file"><?php esc_html_e( 'Import file', 'subscriptions-migration-suite-for-woocommerce' ); ?></label>
-			</th>
-			<td>
-				<input type="file" name="wcsms_file" id="wcsms_file" accept=".jsonl,.json" required />
-				<p class="description"><?php esc_html_e( 'Accepted formats: .jsonl and .json (one record per line). The file is stored in a protected directory and removed when the run completes.', 'subscriptions-migration-suite-for-woocommerce' ); ?></p>
-			</td>
-		</tr>
-		<tr>
-			<th scope="row">
-				<?php esc_html_e( 'Mode', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-				<?php echo wc_help_tip( __( 'Leave unchecked to dry run first: every record is validated and resolved, nothing is written, and problems show per line on the runs tab.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
-			</th>
-			<td>
-				<label for="wcsms_live">
-					<input type="checkbox" name="wcsms_live" id="wcsms_live" value="1" />
-					<?php esc_html_e( 'Live import (writes subscriptions)', 'subscriptions-migration-suite-for-woocommerce' ); ?>
-				</label>
-			</td>
-		</tr>
+	<table class="form-table">
+		<tbody>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<label for="wcsms_file"><?php esc_html_e( 'Import file', 'subscriptions-migration-suite-for-woocommerce' ); ?></label>
+				</th>
+				<td class="forminp">
+					<input type="file" name="wcsms_file" id="wcsms_file" accept=".jsonl,.json" required />
+					<p class="description"><?php esc_html_e( 'Accepted formats: .jsonl and .json (one record per line). The file is stored in a protected directory and removed when the run completes.', 'subscriptions-migration-suite-for-woocommerce' ); ?></p>
+				</td>
+			</tr>
+			<tr valign="top">
+				<th scope="row" class="titledesc">
+					<label for="wcsms_live"><?php esc_html_e( 'Mode', 'subscriptions-migration-suite-for-woocommerce' ); ?></label>
+					<?php echo wc_help_tip( __( 'Leave unchecked to dry run first: every record is validated and resolved, nothing is written, and problems show per line on the runs tab.', 'subscriptions-migration-suite-for-woocommerce' ) ); ?>
+				</th>
+				<td class="forminp forminp-checkbox">
+					<label for="wcsms_live">
+						<input type="checkbox" name="wcsms_live" id="wcsms_live" value="1" />
+						<?php esc_html_e( 'Live import (writes subscriptions)', 'subscriptions-migration-suite-for-woocommerce' ); ?>
+					</label>
+				</td>
+			</tr>
+		</tbody>
 	</table>
 
 	<p class="submit">

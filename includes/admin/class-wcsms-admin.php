@@ -36,7 +36,24 @@ class WCSMS_Admin {
 		add_action( 'admin_post_' . self::EXPORT_ACTION, array( __CLASS__, 'handle_export' ) );
 		add_action( 'admin_post_' . self::MIGRATE_ACTION, array( __CLASS__, 'handle_migrate' ) );
 		add_filter( 'woocommerce_screen_ids', array( __CLASS__, 'register_screen' ) );
+		add_filter( 'plugin_action_links_' . plugin_basename( WCSMS_PLUGIN_FILE ), array( __CLASS__, 'plugin_action_links' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
+	}
+
+	/**
+	 * Action links on the plugins list: straight to the migration screen
+	 * and to the settings section.
+	 *
+	 * @param string[] $links Existing action links.
+	 * @return string[]
+	 */
+	public static function plugin_action_links( $links ) {
+		$plugin_links = array(
+			'<a href="' . esc_url( self::page_url() ) . '">' . esc_html__( 'Migrate', 'subscriptions-migration-suite-for-woocommerce' ) . '</a>',
+			'<a href="' . esc_url( admin_url( 'admin.php?page=wc-settings&tab=advanced&section=' . WCSMS_Settings::SECTION_ID ) ) . '">' . esc_html__( 'Settings', 'subscriptions-migration-suite-for-woocommerce' ) . '</a>',
+		);
+
+		return array_merge( $plugin_links, $links );
 	}
 
 	/**
