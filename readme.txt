@@ -15,10 +15,13 @@ Export, import, and migrate subscriptions into WooCommerce Subscriptions from th
 Subscriptions Migration Suite for WooCommerce helps you move subscription data safely into WooCommerce Subscriptions.
 
 * Scan your site for subscription data from other subscription plugins, even inactive ones.
-* Migrate subscriptions from supported source plugins into WooCommerce Subscriptions.
-* Export and import WooCommerce Subscriptions data between environments.
 * Payment continuity reporting: know before you migrate which subscriptions keep automatic renewals.
-* WP-CLI support for scripted migrations.
+* Migrate subscriptions from supported source plugins into WooCommerce Subscriptions, in the background with resume.
+* Convert source subscription products into WooCommerce Subscriptions products.
+* Double-billing protection: migrated subscriptions are held from renewals until you confirm cutover.
+* Export and import WooCommerce Subscriptions data between environments, including schedules, payment meta, and taxes.
+* Roll back everything a migration or import created, without touching source data.
+* WP-CLI commands for every step: scan, migrate, import, export, convert-products, cutover, rollback, runs, resume.
 
 Supported migration sources:
 
@@ -47,4 +50,9 @@ No. Source data is only read, never changed. Rollback removes only what a migrat
 == Changelog ==
 
 = 0.1.0 =
-* Initial release: source scanner (admin page and WP-CLI), WooCommerce settings section.
+* Initial release.
+* Scanner with payment continuity report for five source plugins: Flexible Subscriptions, Subscriptions For WooCommerce (WP Swings), YITH WooCommerce Subscription, WPSubscription, and Sublium.
+* Migration adapters for all five sources, with background processing, resume, and idempotent re-runs.
+* Streaming JSON Lines export and import with round-trip fidelity, including tax rate mapping.
+* Product conversion, double-billing cutover guard, and rollback.
+* Admin screen under WooCommerce plus WP-CLI commands for every step.

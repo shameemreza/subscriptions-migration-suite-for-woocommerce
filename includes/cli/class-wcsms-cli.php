@@ -24,6 +24,52 @@ class WCSMS_CLI {
 		WP_CLI::add_command( 'wcsms migrate', array( __CLASS__, 'migrate' ) );
 		WP_CLI::add_command( 'wcsms convert-products', array( __CLASS__, 'convert_products' ) );
 		WP_CLI::add_command( 'wcsms cutover', array( __CLASS__, 'cutover' ) );
+		WP_CLI::add_command( 'wcsms rollback', array( __CLASS__, 'rollback' ) );
+	}
+
+	/**
+	 * Remove subscriptions a migration or import created.
+	 *
+	 * Deletes only subscriptions stamped by this plugin, matched by source
+	 * or by run id. Source plugin data is never touched. Dry run by
+	 * default.
+	 *
+	 * ## OPTIONS
+	 *
+	 * [--source=<source>]
+	 * : Remove everything imported from this source id.
+	 *
+	 * [--run=<run_id>]
+	 * : Remove everything a specific run created.
+	 *
+	 * [--live]
+	 * : Perform the deletion. Without it, only the count is reported.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wcsms rollback --source=yith
+	 *     wp wcsms rollback --run=20260714150425 --live
+	 *
+	 * @param array $args       Positional arguments (unused).
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function rollback( $args, $assoc_args ) {
+		$source = isset( $assoc_args['source'] ) ? sanitize_key( $assoc_args['source'] ) : '';
+		$run_id = isset( $assoc_args['run'] ) ? sanitize_text_field( $assoc_args['run'] ) : '';
+
+		if ( '' === $source && '' === $run_id ) {
+			WP_CLI::error( 'Pass --source=<id> or --run=<run_id> to select what to roll back.' );
+		}
+
+		$dry_run = ! isset( $assoc_args['live'] );
+		$report  = WCSMS_Rollback::run( $source, $run_id, $dry_run );
+
+		if ( $dry_run ) {
+			WP_CLI::success( sprintf( '%d subscriptions would be removed. Pass --live to delete them.', $report['found'] ) );
+			return;
+		}
+
+		WP_CLI::success( sprintf( 'Removed %d of %d subscriptions.', $report['deleted'], $report['found'] ) );
 	}
 
 	/**
