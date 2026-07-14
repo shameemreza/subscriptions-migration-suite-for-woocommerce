@@ -16,13 +16,14 @@ class WCSMS_Admin {
 	const SCAN_ACTION   = 'wcsms_run_scan';
 	const UPLOAD_ACTION = 'wcsms_upload_import';
 	const RESUME_ACTION = 'wcsms_resume_run';
+	const EXPORT_ACTION = 'wcsms_export_download';
 
 	/**
 	 * Tabs shown on the page.
 	 *
 	 * @var string[]
 	 */
-	const TABS = array( 'scan', 'import', 'runs' );
+	const TABS = array( 'scan', 'import', 'export', 'runs' );
 
 	/**
 	 * Hook registration.
@@ -31,7 +32,24 @@ class WCSMS_Admin {
 		add_action( 'admin_menu', array( __CLASS__, 'register_menu' ), 60 );
 		add_action( 'admin_post_' . self::UPLOAD_ACTION, array( __CLASS__, 'handle_upload' ) );
 		add_action( 'admin_post_' . self::RESUME_ACTION, array( __CLASS__, 'handle_resume' ) );
+		add_action( 'admin_post_' . self::EXPORT_ACTION, array( __CLASS__, 'handle_export' ) );
+		add_action( 'admin_enqueue_scripts', array( __CLASS__, 'enqueue' ) );
 		add_action( 'admin_notices', array( __CLASS__, 'notices' ) );
+	}
+
+	/**
+	 * Enqueue WooCommerce admin assets on our page, for the enhanced
+	 * customer search select on the export tab.
+	 *
+	 * @param string $hook_suffix Current admin page hook.
+	 */
+	public static function enqueue( $hook_suffix ) {
+		if ( 'woocommerce_page_' . self::PAGE_SLUG !== $hook_suffix ) {
+			return;
+		}
+
+		wp_enqueue_script( 'wc-enhanced-select' );
+		wp_enqueue_style( 'woocommerce_admin_styles' );
 	}
 
 	/**
@@ -163,6 +181,49 @@ class WCSMS_Admin {
 		}
 
 		self::redirect_with_notice( 'runs', 'success', __( 'Run re-queued from its last checkpoint.', 'subscriptions-migration-suite-for-woocommerce' ) );
+	}
+
+	/**
+	 * Stream a filtered export as a JSONL download. The exporter writes
+	 * batch by batch, so memory stays flat regardless of store size.
+	 */
+	public static function handle_export() {
+		if ( ! current_user_can( 'manage_woocommerce' ) ) {
+			wp_die( esc_html__( 'You do not have permission to export subscriptions.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		check_admin_referer( self::EXPORT_ACTION );
+
+		if ( ! WCSMS_Plugin::is_wcs_active() ) {
+			self::redirect_with_notice( 'export', 'error', __( 'WooCommerce Subscriptions must be active to export.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		$statuses = array();
+		if ( ! empty( $_POST['wcsms_statuses'] ) && is_array( $_POST['wcsms_statuses'] ) ) {
+			$statuses = array_map( 'sanitize_key', wp_unslash( $_POST['wcsms_statuses'] ) );
+		}
+
+		$args = array(
+			'statuses'       => $statuses,
+			'customer_id'    => isset( $_POST['wcsms_customer'] ) ? absint( $_POST['wcsms_customer'] ) : 0,
+			'gateway'        => isset( $_POST['wcsms_gateway'] ) ? sanitize_text_field( wp_unslash( $_POST['wcsms_gateway'] ) ) : '',
+			'date_after'     => isset( $_POST['wcsms_date_after'] ) ? sanitize_text_field( wp_unslash( $_POST['wcsms_date_after'] ) ) : '',
+			'date_before'    => isset( $_POST['wcsms_date_before'] ) ? sanitize_text_field( wp_unslash( $_POST['wcsms_date_before'] ) ) : '',
+			'include_tokens' => ! empty( $_POST['wcsms_include_tokens'] ),
+		);
+
+		$filename = 'subscriptions-export-' . gmdate( 'Ymd-His' ) . '.jsonl';
+
+		nocache_headers();
+		header( 'Content-Type: application/octet-stream' );
+		header( 'Content-Disposition: attachment; filename="' . $filename . '"' );
+
+		$handle   = fopen( 'php://output', 'w' ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fopen -- Streaming the download body.
+		$exporter = new WCSMS_Exporter();
+		$exporter->export( $handle, $args );
+		fclose( $handle ); // phpcs:ignore WordPress.WP.AlternativeFunctions.file_system_operations_fclose -- Matching fopen above.
+
+		exit;
 	}
 
 	/**
