@@ -1,0 +1,21 @@
+includes:
+    - vendor/szepeviktor/phpstan-wordpress/extension.neon
+
+parameters:
+    level: 5
+    # Stub PHPDocs are imprecise in places (wc_get_orders with return "ids"
+    # still claims WC_Order[]); trust runtime checks over stub certainty.
+    treatPhpDocTypesAsCertain: false
+    paths:
+        - subscriptions-migration-suite-for-woocommerce.php
+        - includes/
+        - uninstall.php
+    bootstrapFiles:
+        - .phpstan/bootstrap.php
+        - vendor/php-stubs/woocommerce-stubs/woocommerce-stubs.php
+        - vendor/php-stubs/wp-cli-stubs/wp-cli-stubs.php
+    scanDirectories:
+        # WooCommerce Subscriptions classes and wcs_* functions.
+        - ../woocommerce-subscriptions/includes
+        # Action Scheduler as_* functions and store classes.
+        - ../woocommerce/packages/action-scheduler

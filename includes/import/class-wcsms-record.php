@@ -63,7 +63,7 @@ class WCSMS_Record {
 	 * Normalize a raw record. Returns the normalized array or a WP_Error
 	 * naming every problem found, so one pass reports all row issues.
 	 *
-	 * @param array $raw Raw record.
+	 * @param mixed $raw Raw record, usually decoded JSON, so any type may arrive.
 	 * @return array|WP_Error
 	 */
 	public static function normalize( $raw ) {

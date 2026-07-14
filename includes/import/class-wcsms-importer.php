@@ -326,7 +326,7 @@ class WCSMS_Importer {
 
 				if ( ! empty( $tax_data['total'] ) || ! empty( $tax_data['subtotal'] ) ) {
 					$order_item = $subscription->get_item( $item_id );
-					if ( $order_item ) {
+					if ( $order_item instanceof WC_Order_Item_Product ) {
 						$order_item->set_taxes( $tax_data );
 						$order_item->save();
 					}

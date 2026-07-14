@@ -430,7 +430,12 @@ class WCSMS_Source_WPSwings extends WCSMS_Source_Adapter {
 
 			$maps[] = array(
 				'product_id' => $product_id,
-				'meta'       => array_filter( $meta, 'strlen' ),
+				'meta'       => array_filter(
+					$meta,
+					static function ( $value ) {
+						return '' !== (string) $value;
+					}
+				),
 				'error'      => null,
 			);
 		}

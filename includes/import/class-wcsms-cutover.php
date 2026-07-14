@@ -63,7 +63,11 @@ class WCSMS_Cutover {
 	 */
 	public static function held_ids( $source_id ) {
 		return array_map(
-			'intval',
+			static function ( $order_id ) {
+				// With return "ids" the values are numeric; tolerate a full
+				// object in case the query args are ever changed.
+				return is_numeric( $order_id ) ? (int) $order_id : $order_id->get_id();
+			},
 			wc_get_orders(
 				array(
 					'type'       => 'shop_subscription',

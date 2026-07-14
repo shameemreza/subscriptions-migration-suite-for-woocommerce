@@ -284,6 +284,10 @@ class WCSMS_Exporter {
 		$rate_codes = $this->rate_codes( $subscription );
 
 		foreach ( $subscription->get_items() as $item ) {
+			if ( ! $item instanceof WC_Order_Item_Product ) {
+				continue;
+			}
+
 			$product_id = $item->get_variation_id() ? $item->get_variation_id() : $item->get_product_id();
 			$product    = $item->get_product();
 

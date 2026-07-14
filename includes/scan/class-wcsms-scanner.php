@@ -271,7 +271,7 @@ class WCSMS_Scanner {
 	 * stores are checked and the larger count wins.
 	 *
 	 * @param array $definition Source definition.
-	 * @return array|null
+	 * @return array
 	 */
 	private function count_order_type( $definition ) {
 		$type = $definition['object_type'];
@@ -279,11 +279,7 @@ class WCSMS_Scanner {
 		$hpos  = $this->count_orders_table( $type, $definition );
 		$posts = $this->count_posts_store( $type, $definition );
 
-		if ( null === $hpos && null === $posts ) {
-			return null;
-		}
-
-		if ( null !== $hpos && ( null === $posts || $hpos['total'] >= $posts['total'] ) ) {
+		if ( null !== $hpos && $hpos['total'] >= $posts['total'] ) {
 			return $hpos;
 		}
 
@@ -345,7 +341,7 @@ class WCSMS_Scanner {
 	 *
 	 * @param string $type       Post type.
 	 * @param array  $definition Source definition.
-	 * @return array|null
+	 * @return array
 	 */
 	private function count_posts_store( $type, $definition ) {
 		global $wpdb;
@@ -393,7 +389,7 @@ class WCSMS_Scanner {
 	 * Count records for a post-type source.
 	 *
 	 * @param array $definition Source definition.
-	 * @return array|null
+	 * @return array
 	 */
 	private function count_post_type( $definition ) {
 		return $this->count_posts_store( $definition['object_type'], $definition );

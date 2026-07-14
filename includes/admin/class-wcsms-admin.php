@@ -272,7 +272,7 @@ class WCSMS_Admin {
 			return;
 		}
 
-		$type    = isset( $_GET['wcsms_notice'] ) && 'error' === $_GET['wcsms_notice'] ? 'error' : 'success';
+		$type    = 'error' === $_GET['wcsms_notice'] ? 'error' : 'success';
 		$message = isset( $_GET['wcsms_message'] ) ? sanitize_text_field( rawurldecode( wp_unslash( $_GET['wcsms_message'] ) ) ) : '';
 		// phpcs:enable WordPress.Security.NonceVerification.Recommended
 
