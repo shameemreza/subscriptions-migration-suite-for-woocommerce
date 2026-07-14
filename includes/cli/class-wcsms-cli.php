@@ -21,6 +21,137 @@ class WCSMS_CLI {
 		WP_CLI::add_command( 'wcsms runs', array( __CLASS__, 'runs' ) );
 		WP_CLI::add_command( 'wcsms resume', array( __CLASS__, 'resume' ) );
 		WP_CLI::add_command( 'wcsms export', array( __CLASS__, 'export' ) );
+		WP_CLI::add_command( 'wcsms migrate', array( __CLASS__, 'migrate' ) );
+	}
+
+	/**
+	 * Migrate subscriptions from a source plugin into WooCommerce
+	 * Subscriptions.
+	 *
+	 * Reads the source data directly from the database, so the source plugin
+	 * can (and should) stay deactivated. Runs as a dry run unless --live is
+	 * passed. Already-migrated records are matched by source stamps and
+	 * skipped.
+	 *
+	 * ## OPTIONS
+	 *
+	 * <source>
+	 * : The source id. Currently: flexible_subscriptions.
+	 *
+	 * [--live]
+	 * : Write subscriptions. Without this flag every record is validated and
+	 * resolved but nothing is created.
+	 *
+	 * [--background]
+	 * : Queue the migration on Action Scheduler instead of processing now.
+	 *
+	 * ## EXAMPLES
+	 *
+	 *     wp wcsms migrate flexible_subscriptions
+	 *     wp wcsms migrate flexible_subscriptions --live
+	 *     wp wcsms migrate flexible_subscriptions --live --background
+	 *
+	 * @param array $args       Positional arguments.
+	 * @param array $assoc_args Named arguments.
+	 */
+	public static function migrate( $args, $assoc_args ) {
+		$source_id = $args[0];
+		$dry_run   = ! isset( $assoc_args['live'] );
+
+		if ( ! WCSMS_Plugin::is_wcs_active() && ! $dry_run ) {
+			WP_CLI::error( 'WooCommerce Subscriptions must be active for a live migration.' );
+		}
+
+		$adapter = WCSMS_Sources::get( $source_id );
+
+		if ( null === $adapter ) {
+			WP_CLI::error( sprintf( 'Unknown source "%s". Available: %s', $source_id, implode( ', ', array_keys( WCSMS_Sources::adapters() ) ) ) );
+		}
+
+		if ( $dry_run ) {
+			WP_CLI::log( 'Dry run: nothing will be written. Pass --live to migrate.' );
+		}
+
+		if ( isset( $assoc_args['background'] ) ) {
+			$run = WCSMS_Batch_Runner::start_source( $source_id, $dry_run );
+
+			if ( is_wp_error( $run ) ) {
+				WP_CLI::error( $run->get_error_message() );
+			}
+
+			WP_CLI::success( sprintf( 'Run %s queued: %d subscriptions. Track it with: wp wcsms runs', $run['id'], $run['total'] ) );
+			return;
+		}
+
+		$total = $adapter->count();
+		WP_CLI::log( sprintf( '%s: %d subscriptions found.', $adapter->label(), $total ) );
+
+		$importer = new WCSMS_Importer();
+		$run_id   = 'cli-' . gmdate( 'YmdHis' );
+		$offset   = 0;
+		$batch    = max( 1, (int) get_option( 'wcsms_batch_size', 20 ) );
+		$tally    = array(
+			'created' => 0,
+			'skipped' => 0,
+			'dry_run' => 0,
+			'failed'  => 0,
+		);
+
+		while ( true ) {
+			$rows = $adapter->fetch( $offset, $batch );
+
+			if ( empty( $rows ) ) {
+				break;
+			}
+
+			foreach ( $rows as $row ) {
+				$offset++;
+
+				if ( null === $row['record'] ) {
+					$tally['failed']++;
+					WP_CLI::warning( sprintf( '#%s failed. %s', $row['source_ref'], $row['error'] ) );
+					continue;
+				}
+
+				$result = $importer->import(
+					$row['record'],
+					array(
+						'dry_run' => $dry_run,
+						'run_id'  => $run_id,
+					)
+				);
+
+				$tally[ $result['status'] ]++;
+
+				if ( 'failed' === $result['status'] ) {
+					WP_CLI::warning( sprintf( '#%s failed. %s', $row['source_ref'], implode( ' ', $result['errors'] ) ) );
+				} elseif ( 'created' === $result['status'] ) {
+					$note = $result['warnings'] ? ' ' . implode( ' ', $result['warnings'] ) : '';
+					WP_CLI::log( sprintf( '#%s migrated as subscription #%d.%s', $row['source_ref'], $result['subscription_id'], $note ) );
+				} elseif ( 'skipped' === $result['status'] ) {
+					WP_CLI::log( sprintf( '#%s skipped. %s', $row['source_ref'], implode( ' ', $result['warnings'] ) ) );
+				}
+			}
+
+			if ( count( $rows ) < $batch ) {
+				break;
+			}
+		}
+
+		WP_CLI::success(
+			sprintf(
+				'Done. created: %d, skipped: %d, validated: %d, failed: %d (run %s).',
+				$tally['created'],
+				$tally['skipped'],
+				$tally['dry_run'],
+				$tally['failed'],
+				$run_id
+			)
+		);
+
+		if ( $tally['failed'] > 0 ) {
+			WP_CLI::halt( 1 );
+		}
 	}
 
 	/**

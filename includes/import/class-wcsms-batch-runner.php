@@ -66,6 +66,42 @@ class WCSMS_Batch_Runner {
 	}
 
 	/**
+	 * Start a background migration from a source adapter.
+	 *
+	 * @param string $source_id Adapter id from WCSMS_Sources.
+	 * @param bool   $dry_run   Validate without writing.
+	 * @return array|WP_Error The created run, or an error.
+	 */
+	public static function start_source( $source_id, $dry_run ) {
+		$adapter = WCSMS_Sources::get( $source_id );
+
+		if ( null === $adapter ) {
+			return new WP_Error( 'wcsms_unknown_source', __( 'No adapter exists for that source.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		$total = $adapter->count();
+
+		if ( 0 === $total ) {
+			return new WP_Error( 'wcsms_source_empty', __( 'No migratable subscriptions were found for that source.', 'subscriptions-migration-suite-for-woocommerce' ) );
+		}
+
+		$run = WCSMS_Run::create(
+			'source_import',
+			array(
+				'source'  => $source_id,
+				'total'   => $total,
+				'dry_run' => (bool) $dry_run,
+			)
+		);
+
+		self::enqueue( $run['id'] );
+
+		WCSMS_Logger::log( sprintf( 'Run %s queued for source %s: %d subscriptions (%s).', $run['id'], $source_id, $total, $dry_run ? 'dry run' : 'live' ) );
+
+		return $run;
+	}
+
+	/**
 	 * Re-queue an interrupted run from its last checkpoint.
 	 *
 	 * @param string $run_id Run id.
@@ -111,6 +147,11 @@ class WCSMS_Batch_Runner {
 			$run['status'] = 'failed';
 			WCSMS_Run::add_error( $run, $run['line'], __( 'WooCommerce Subscriptions is not active.', 'subscriptions-migration-suite-for-woocommerce' ) );
 			WCSMS_Run::save( $run );
+			return;
+		}
+
+		if ( 'source_import' === $run['type'] ) {
+			self::handle_source_batch( $run );
 			return;
 		}
 
@@ -204,6 +245,76 @@ class WCSMS_Batch_Runner {
 
 		WCSMS_Run::save( $run );
 		self::enqueue( $run_id );
+	}
+
+	/**
+	 * Process one batch of a source-adapter migration. The checkpoint is the
+	 * count of records processed, which is also the fetch offset: adapters
+	 * return rows in stable id order.
+	 *
+	 * @param array $run Run record.
+	 */
+	private static function handle_source_batch( $run ) {
+		$adapter = WCSMS_Sources::get( $run['source'] );
+
+		if ( null === $adapter ) {
+			$run['status'] = 'failed';
+			WCSMS_Run::add_error( $run, $run['line'], __( 'The source adapter is no longer available.', 'subscriptions-migration-suite-for-woocommerce' ) );
+			WCSMS_Run::save( $run );
+			return;
+		}
+
+		$run['status'] = 'running';
+
+		$batch_size = max( 1, (int) get_option( 'wcsms_batch_size', 20 ) );
+		$rows       = $adapter->fetch( (int) $run['line'], $batch_size );
+		$importer   = new WCSMS_Importer();
+
+		foreach ( $rows as $row ) {
+			$run['line']++;
+
+			if ( null === $row['record'] ) {
+				$run['tallies']['failed']++;
+				WCSMS_Run::add_error( $run, $run['line'], sprintf( '%s: %s', $row['source_ref'], $row['error'] ) );
+				continue;
+			}
+
+			$result = $importer->import(
+				$row['record'],
+				array(
+					'dry_run' => ! empty( $run['dry_run'] ),
+					'run_id'  => $run['id'],
+				)
+			);
+
+			$run['tallies'][ $result['status'] ]++;
+
+			if ( 'failed' === $result['status'] ) {
+				WCSMS_Run::add_error( $run, $run['line'], sprintf( '%s: %s', $row['source_ref'], implode( ' ', $result['errors'] ) ) );
+			}
+		}
+
+		if ( count( $rows ) < $batch_size ) {
+			$run['status'] = 'completed';
+			WCSMS_Run::save( $run );
+			WCSMS_Logger::log(
+				sprintf(
+					'Run %s completed. created: %d, skipped: %d, validated: %d, failed: %d.',
+					$run['id'],
+					$run['tallies']['created'],
+					$run['tallies']['skipped'],
+					$run['tallies']['dry_run'],
+					$run['tallies']['failed']
+				)
+			);
+
+			/** This action is documented earlier in this file. */
+			do_action( 'wcsms_run_completed', $run );
+			return;
+		}
+
+		WCSMS_Run::save( $run );
+		self::enqueue( $run['id'] );
 	}
 
 	/**
