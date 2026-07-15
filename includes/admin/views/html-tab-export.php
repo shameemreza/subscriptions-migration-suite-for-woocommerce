@@ -26,7 +26,7 @@ $wcsms_gateways = WC()->payment_gateways()->get_available_payment_gateways();
 				<fieldset>
 					<legend class="screen-reader-text"><span><?php esc_html_e( 'Statuses', 'subscriptions-migration-suite-for-woocommerce' ); ?></span></legend>
 					<?php foreach ( $wcsms_statuses as $wcsms_status_key => $wcsms_status_label ) : ?>
-						<label style="margin-right: 16px; display: inline-block;">
+						<label style="display: block; margin-bottom: 6px;">
 							<input type="checkbox" name="wcsms_statuses[]" value="<?php echo esc_attr( str_replace( 'wc-', '', $wcsms_status_key ) ); ?>" />
 							<?php echo esc_html( $wcsms_status_label ); ?>
 						</label>
